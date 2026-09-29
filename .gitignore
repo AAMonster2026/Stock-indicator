@@ -1,0 +1,31 @@
+# Secrets and local environment
+.env
+.env.*
+*.pem
+*.key
+id_rsa
+id_rsa.pub
+credentials.json
+secrets.json
+*.secret
+
+# Dependencies
+node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local app data (personal holdings, cash, watchlist)
+watchlist_v1.json
+portfolio_v1.json
+custom_sectors_v1.json
+cash_deposits_v1.json
+realized_trades_v1.json
+
+# OS / editor
+Thumbs.db
+Desktop.ini
+.DS_Store

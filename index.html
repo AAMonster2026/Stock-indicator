@@ -1,0 +1,2433 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>個人投資觀察平台 | Personal Investment Watch & Portfolio</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          boxShadow: {
+            glow: '0 0 28px rgba(250, 204, 21, 0.12)',
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: #09090b; }
+    ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #52525b; }
+    .skeleton {
+      background: linear-gradient(90deg, rgba(63,63,70,.55) 25%, rgba(82,82,91,.8) 50%, rgba(63,63,70,.55) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.2s infinite;
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    .allocation-pie-slice {
+      fill: #09090b;
+      transition: stroke-width 0.15s ease, opacity 0.15s ease;
+    }
+    .allocation-pie-slice:hover {
+      stroke-width: 4;
+      opacity: 0.92;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-zinc-950 text-zinc-100 antialiased">
+  <div class="fixed inset-x-0 top-0 z-40 border-b border-zinc-800 bg-zinc-950/90 backdrop-blur-xl">
+    <nav class="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+      <div class="flex items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-3">
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl border border-yellow-400/30 bg-yellow-400/10 text-xl font-black text-yellow-300 shadow-glow">PI</div>
+            <div>
+              <h1 class="text-lg font-bold tracking-tight text-zinc-50">個人投資觀察平台</h1>
+              <p class="text-xs text-zinc-400">Personal Investment Watch & Portfolio</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <button data-tab="sectors" class="tab-btn rounded-lg px-3 py-2 text-sm font-semibold text-yellow-300 transition hover:bg-zinc-900">版塊觀察</button>
+        <button data-tab="watchlist" class="tab-btn rounded-lg px-3 py-2 text-sm font-semibold text-zinc-300 transition hover:bg-zinc-900 hover:text-yellow-300">個人的觀察清單</button>
+        <button data-tab="portfolio" class="tab-btn rounded-lg px-3 py-2 text-sm font-semibold text-zinc-300 transition hover:bg-zinc-900 hover:text-yellow-300">投資組合</button>
+        <button data-tab="allocation" class="tab-btn rounded-lg px-3 py-2 text-sm font-semibold text-zinc-300 transition hover:bg-zinc-900 hover:text-yellow-300">資產配置</button>
+      </div>
+      <button id="refresh-all-btn" class="rounded-xl bg-yellow-400 px-4 py-2 text-sm font-bold text-zinc-950 shadow-lg shadow-yellow-500/10 transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-60">
+        更新所有數據
+      </button>
+    </nav>
+  </div>
+
+  <main class="mx-auto max-w-7xl px-4 pb-16 pt-40 sm:px-6 lg:px-8 lg:pt-28">
+    <section id="tab-sectors" class="tab-panel space-y-8">
+      <div class="flex flex-col gap-4 rounded-2xl border border-zinc-800 bg-slate-900/60 p-5 shadow-xl sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p class="text-sm font-semibold uppercase tracking-[0.2em] text-yellow-300">Market Overview</p>
+          <h2 class="mt-2 text-2xl font-bold text-zinc-50">版塊觀察</h2>
+          <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">追蹤美國、日本與香港主要 ETF 的最新價格、週線動能與成交量，快速掌握市場強弱。</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button id="refresh-sectors-btn" class="rounded-xl border border-yellow-400/40 px-4 py-2 text-sm font-semibold text-yellow-300 transition hover:bg-yellow-400 hover:text-zinc-950">刷新版塊</button>
+          <button data-export="customSectors" class="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-200 transition hover:border-yellow-400 hover:text-yellow-300">匯出 JSON</button>
+          <button data-import="customSectors" class="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-200 transition hover:border-yellow-400 hover:text-yellow-300">載入 JSON</button>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5">
+        <h3 class="text-lg font-bold text-zinc-50">新增自訂版塊 ETF</h3>
+        <div class="mt-4 grid gap-3 md:grid-cols-[1fr_180px_auto]">
+          <input id="sector-symbol-input" placeholder="例如：IWM、EWY、3033.HK" class="rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-yellow-400" />
+          <select id="sector-market-select" class="rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-100 outline-none transition focus:border-yellow-400">
+            <option value="US">美國版塊</option>
+            <option value="JP">日本版塊</option>
+            <option value="HK">香港版塊</option>
+          </select>
+          <button id="add-sector-btn" class="rounded-xl bg-yellow-400 px-5 py-3 text-sm font-bold text-zinc-950 transition hover:bg-amber-500">加入</button>
+        </div>
+      </div>
+
+      <div id="sectors-container" class="space-y-10"></div>
+    </section>
+
+    <section id="tab-watchlist" class="tab-panel hidden space-y-8">
+      <div class="flex flex-col gap-4 rounded-2xl border border-zinc-800 bg-slate-900/60 p-5 shadow-xl lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p class="text-sm font-semibold uppercase tracking-[0.2em] text-yellow-300">Watchlist</p>
+          <h2 class="mt-2 text-2xl font-bold text-zinc-50">個人的觀察清單</h2>
+          <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">為股票設定目標下跌價，當最新價達標時自動以綠色提示。</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button id="refresh-watchlist-btn" class="rounded-xl border border-yellow-400/40 px-4 py-2 text-sm font-semibold text-yellow-300 transition hover:bg-yellow-400 hover:text-zinc-950">刷新觀察清單</button>
+          <button data-export="watchlist" class="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-200 transition hover:border-yellow-400 hover:text-yellow-300">匯出 JSON</button>
+          <button data-import="watchlist" class="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-200 transition hover:border-yellow-400 hover:text-yellow-300">載入 JSON</button>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5">
+        <h3 class="text-lg font-bold text-zinc-50">加入觀察清單</h3>
+        <div class="mt-4 grid gap-3 md:grid-cols-[1fr_180px_auto]">
+          <input id="watch-symbol-input" placeholder="Symbol，例如 AAPL、7203.T、0005.HK" class="rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-yellow-400" />
+          <select id="watch-market-select" class="rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-100 outline-none transition focus:border-yellow-400">
+            <option value="US">美國</option>
+            <option value="JP">日本</option>
+            <option value="HK">香港</option>
+          </select>
+          <button id="add-watch-btn" class="rounded-xl bg-yellow-400 px-5 py-3 text-sm font-bold text-zinc-950 transition hover:bg-amber-500">加入觀察清單</button>
+        </div>
+      </div>
+
+      <div id="watchlist-container" class="space-y-10"></div>
+    </section>
+
+    <section id="tab-portfolio" class="tab-panel hidden space-y-8">
+      <div class="flex flex-col gap-4 rounded-2xl border border-zinc-800 bg-slate-900/60 p-5 shadow-xl lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p class="text-sm font-semibold uppercase tracking-[0.2em] text-yellow-300">Portfolio</p>
+          <h2 class="mt-2 text-2xl font-bold text-zinc-50">投資組合</h2>
+          <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">按 USD、HKD、JPY 分組計算投入、現值與盈虧，並標示單一持倉風險。</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button id="refresh-portfolio-btn" class="rounded-xl border border-yellow-400/40 px-4 py-2 text-sm font-semibold text-yellow-300 transition hover:bg-yellow-400 hover:text-zinc-950">刷新投資組合</button>
+          <button data-export="portfolio" class="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-200 transition hover:border-yellow-400 hover:text-yellow-300">匯出 JSON</button>
+          <button data-import="portfolio" class="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-200 transition hover:border-yellow-400 hover:text-yellow-300">載入 JSON</button>
+        </div>
+      </div>
+
+      <form id="portfolio-form" class="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5">
+        <h3 class="text-lg font-bold text-zinc-50">新增持倉</h3>
+        <div class="mt-4 grid gap-3 lg:grid-cols-[1fr_130px_120px_150px_160px_auto]">
+          <div class="relative">
+            <input id="portfolio-symbol-input" required placeholder="Symbol，例如 AAPL、BRK.B、0027" autocomplete="off" class="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-yellow-400" />
+            <div id="portfolio-symbol-suggestions" class="absolute inset-x-0 top-[calc(100%+6px)] z-20 hidden max-h-56 overflow-y-auto rounded-xl border border-zinc-700 bg-zinc-950 shadow-2xl"></div>
+          </div>
+          <select id="portfolio-market-select" class="rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-100 outline-none transition focus:border-yellow-400">
+            <option value="US">美國</option>
+            <option value="HK">香港</option>
+            <option value="JP">日本</option>
+          </select>
+          <input id="portfolio-qty-input" required type="number" min="0" step="0.0001" placeholder="數量" class="rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-yellow-400" />
+          <input id="portfolio-cost-input" required type="number" min="0" step="0.0001" placeholder="平均成本價" class="rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-yellow-400" />
+          <input id="portfolio-date-input" required type="date" class="rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-100 outline-none transition focus:border-yellow-400" />
+          <button class="rounded-xl bg-yellow-400 px-5 py-3 text-sm font-bold text-zinc-950 transition hover:bg-amber-500">新增持倉</button>
+        </div>
+      </form>
+
+      <div id="summary-container" class="grid gap-4 md:grid-cols-3"></div>
+
+      <div class="grid gap-6 lg:grid-cols-[1fr_360px]">
+        <div class="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/70">
+          <div class="flex flex-col gap-3 border-b border-zinc-800 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex items-center gap-3">
+              <h3 class="text-lg font-bold text-zinc-50">持倉列表</h3>
+              <span id="portfolio-count" class="text-sm text-zinc-400"></span>
+            </div>
+            <select id="portfolio-filter" class="rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-2 text-sm text-zinc-100 outline-none transition focus:border-yellow-400">
+              <option value="all">全部持倉</option>
+              <option value="HK">香港</option>
+              <option value="JP">日本</option>
+              <option value="US">美國</option>
+              <option value="profit">盈利持倉</option>
+              <option value="loss">虧損持倉</option>
+            </select>
+          </div>
+          <div id="portfolio-table-container" class="overflow-x-auto"></div>
+          <div id="portfolio-hkd-summary" class="border-t border-zinc-800 bg-zinc-950/60 px-5 py-4"></div>
+        </div>
+
+        <aside class="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5">
+          <h3 class="text-lg font-bold text-zinc-50">日期範圍計算</h3>
+          <p class="mt-2 text-sm leading-6 text-zinc-400">只統計購入日期落在範圍內的持倉，使用最新價格估算期間子組合表現。</p>
+          <button id="month-range-btn" class="mt-4 w-full rounded-xl border border-yellow-400/40 px-4 py-3 text-sm font-semibold text-yellow-300 transition hover:bg-yellow-400 hover:text-zinc-950">本月表現</button>
+          <div class="mt-4 grid gap-3">
+            <label class="text-sm text-zinc-300">
+              From
+              <input id="range-from-input" type="date" class="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-100 outline-none transition focus:border-yellow-400" />
+            </label>
+            <label class="text-sm text-zinc-300">
+              To
+              <input id="range-to-input" type="date" class="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-100 outline-none transition focus:border-yellow-400" />
+            </label>
+            <button id="calc-range-btn" class="rounded-xl bg-yellow-400 px-4 py-3 text-sm font-bold text-zinc-950 transition hover:bg-amber-500">計算期間盈虧</button>
+          </div>
+          <div id="range-result" class="mt-5 rounded-xl border border-zinc-800 bg-zinc-950 p-4 text-sm text-zinc-300">請選擇日期範圍後計算。</div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="tab-allocation" class="tab-panel hidden space-y-8">
+      <div class="flex flex-col gap-4 rounded-2xl border border-zinc-800 bg-slate-900/60 p-5 shadow-xl lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p class="text-sm font-semibold uppercase tracking-[0.2em] text-yellow-300">Allocation</p>
+          <h2 class="mt-2 text-2xl font-bold text-zinc-50">資產配置</h2>
+          <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">記錄每月 HKD 現金存入與取出，追蹤現金水平變化，並以圓形圖總結美股、日股、港股投資與現金佔比。</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button id="refresh-allocation-btn" class="rounded-xl border border-yellow-400/40 px-4 py-2 text-sm font-semibold text-yellow-300 transition hover:bg-yellow-400 hover:text-zinc-950">刷新配置</button>
+          <button data-export="cashDeposits" class="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-200 transition hover:border-yellow-400 hover:text-yellow-300">匯出 JSON</button>
+          <button data-import="cashDeposits" class="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-200 transition hover:border-yellow-400 hover:text-yellow-300">載入 JSON</button>
+        </div>
+      </div>
+
+      <form id="cash-deposit-form" class="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5">
+        <h3 class="text-lg font-bold text-zinc-50">每月現金存入 / 取出（HKD）</h3>
+        <p class="mt-2 text-sm text-zinc-400">輸入股票以外的 HKD 現金變動；正數為存入，負數為取出。</p>
+        <div class="mt-4 grid gap-3 lg:grid-cols-[180px_1fr_1fr_auto]">
+          <input id="cash-month-input" required type="month" class="rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-100 outline-none transition focus:border-yellow-400" />
+          <input id="cash-amount-input" required type="number" step="0.01" placeholder="金額（HKD），例如 50000 或 -10000" class="rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-yellow-400" />
+          <input id="cash-note-input" type="text" placeholder="備註（選填）" class="rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-yellow-400" />
+          <button class="rounded-xl bg-yellow-400 px-5 py-3 text-sm font-bold text-zinc-950 transition hover:bg-amber-500">儲存本月記錄</button>
+        </div>
+      </form>
+
+      <div class="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 class="text-lg font-bold text-zinc-50">現金水平變化</h3>
+            <p class="mt-1 text-sm text-zinc-400">按月顯示存入/取出、累積現金餘額及較上月變化。</p>
+          </div>
+          <div id="cash-balance-summary" class="text-right text-sm"></div>
+        </div>
+        <div id="cash-trend-container" class="mt-5"></div>
+      </div>
+
+      <div class="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5">
+        <div class="mb-5">
+          <h3 class="text-lg font-bold text-zinc-50">投資組合與現金配置</h3>
+          <p class="mt-1 text-sm text-zinc-400">以投資組合最新市值（折算 HKD）及現金餘額計算佔比；滑鼠移至圓形圖可查看各項總值。</p>
+        </div>
+        <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div id="allocation-pie-container" class="relative flex min-h-[320px] items-center justify-center"></div>
+          <div id="allocation-legend-container" class="space-y-3"></div>
+        </div>
+        <div id="allocation-total-summary" class="mt-5 border-t border-zinc-800 pt-5 text-sm text-zinc-300"></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="global-loading" class="pointer-events-none fixed inset-x-0 top-[76px] z-50 hidden justify-center">
+    <div class="rounded-full border border-yellow-400/30 bg-zinc-900/95 px-4 py-2 text-sm font-semibold text-yellow-300 shadow-xl">載入 Yahoo Finance 數據中...</div>
+  </div>
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex w-[min(92vw,420px)] flex-col gap-3"></div>
+
+  <script>
+    const YAHOO_API_BASE = '/api/yahoo';
+    const DATA_API_BASE = '/api/data';
+
+    const JSON_FILE_MAP = {
+      watchlist: 'watchlist_v1.json',
+      portfolio: 'portfolio_v1.json',
+      customSectors: 'custom_sectors_v1.json',
+      cashDeposits: 'cash_deposits_v1.json',
+      realizedTrades: 'realized_trades_v1.json',
+    };
+
+    const CACHE_KEY = 'yahoo_cache_v1';
+    const WATCHLIST_KEY = 'watchlist_v1';
+    const PORTFOLIO_KEY = 'portfolio_v1';
+    const CUSTOM_SECTORS_KEY = 'custom_sectors_v1';
+    const CASH_DEPOSITS_KEY = 'cash_deposits_v1';
+    const REALIZED_TRADES_KEY = 'realized_trades_v1';
+    const CACHE_TTL = 5 * 60 * 1000;
+
+    const defaultSectors = {
+      US: ['SPY', 'QQQ', 'XLK', 'XLF', 'XLE', 'XLV'],
+      JP: ['EWJ', 'DXJ', 'JPXN'],
+      HK: ['2800.HK', 'EWH'],
+    };
+
+    const marketLabels = {
+      US: '美國',
+      JP: '日本',
+      HK: '香港',
+    };
+
+    const currencyByMarket = {
+      US: 'USD',
+      HK: 'HKD',
+      JP: 'JPY',
+    };
+
+    const FX_SYMBOLS = {
+      USDHKD: 'USDHKD=X',
+      USDJPY: 'USDJPY=X',
+    };
+
+    const state = {
+      activeTab: 'sectors',
+      cache: loadJson(CACHE_KEY, {}),
+      watchlist: loadJson(WATCHLIST_KEY, []),
+      portfolio: loadJson(PORTFOLIO_KEY, []),
+      realizedTrades: loadJson(REALIZED_TRADES_KEY, []),
+      customSectors: loadJson(CUSTOM_SECTORS_KEY, []),
+      cashDeposits: loadJson(CASH_DEPOSITS_KEY, []),
+      quotes: {},
+      profiles: {},
+      weeklyStats: {},
+      symbolMeta: {},
+      fxRates: { USDHKD: 7.8, JPYHKD: 0.052 },
+      portfolioSort: { field: 'costTotal', direction: 'desc' },
+      portfolioFilter: 'all',
+      expandedWatchIds: new Set(),
+      portfolioSymbolPick: null,
+      portfolioSuggestTimer: null,
+      loadingCount: 0,
+      lastApiCallAt: 0,
+    };
+
+    const els = {
+      globalLoading: document.getElementById('global-loading'),
+      toastContainer: document.getElementById('toast-container'),
+      sectorsContainer: document.getElementById('sectors-container'),
+      watchlistContainer: document.getElementById('watchlist-container'),
+      summaryContainer: document.getElementById('summary-container'),
+      portfolioTableContainer: document.getElementById('portfolio-table-container'),
+      portfolioCount: document.getElementById('portfolio-count'),
+      portfolioFilter: document.getElementById('portfolio-filter'),
+      portfolioHkdSummary: document.getElementById('portfolio-hkd-summary'),
+      portfolioSymbolInput: document.getElementById('portfolio-symbol-input'),
+      portfolioSymbolSuggestions: document.getElementById('portfolio-symbol-suggestions'),
+      portfolioMarketSelect: document.getElementById('portfolio-market-select'),
+      rangeResult: document.getElementById('range-result'),
+      cashTrendContainer: document.getElementById('cash-trend-container'),
+      cashBalanceSummary: document.getElementById('cash-balance-summary'),
+      allocationPieContainer: document.getElementById('allocation-pie-container'),
+      allocationLegendContainer: document.getElementById('allocation-legend-container'),
+      allocationTotalSummary: document.getElementById('allocation-total-summary'),
+    };
+
+    document.addEventListener('DOMContentLoaded', init);
+
+    async function init() {
+      setDefaultDates();
+      bindEvents();
+      renderAll();
+      await bootstrapFromServerFolder();
+      renderAll();
+      refreshAllData(false, { showSuccessToast: false });
+    }
+
+    function bindEvents() {
+      document.querySelectorAll('.tab-btn').forEach((btn) => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+      });
+
+      document.getElementById('refresh-all-btn').addEventListener('click', () => refreshAllData(true));
+      document.getElementById('refresh-sectors-btn').addEventListener('click', () => refreshSectors(true));
+      document.getElementById('refresh-watchlist-btn').addEventListener('click', () => refreshWatchlist(true));
+      document.getElementById('refresh-portfolio-btn').addEventListener('click', () => refreshPortfolio(true));
+      document.getElementById('refresh-allocation-btn').addEventListener('click', () => refreshAllocation(true));
+      document.getElementById('add-sector-btn').addEventListener('click', addCustomSector);
+      document.getElementById('add-watch-btn').addEventListener('click', addWatchlistItem);
+      document.getElementById('portfolio-form').addEventListener('submit', addPortfolioItem);
+      document.getElementById('cash-deposit-form').addEventListener('submit', saveCashDeposit);
+      document.getElementById('cash-month-input').addEventListener('change', prefillCashDepositForm);
+      bindPortfolioSymbolAutocomplete();
+      document.getElementById('month-range-btn').addEventListener('click', setMonthRange);
+      document.getElementById('calc-range-btn').addEventListener('click', calculateRangePerformance);
+      els.portfolioFilter.addEventListener('change', (event) => {
+        state.portfolioFilter = event.target.value;
+        renderPortfolio();
+      });
+
+      document.querySelectorAll('[data-export]').forEach((btn) => {
+        btn.addEventListener('click', () => exportJson(btn.dataset.export));
+      });
+
+      document.querySelectorAll('[data-import]').forEach((btn) => {
+        btn.addEventListener('click', () => importJson(btn.dataset.import));
+      });
+    }
+
+    function switchTab(tab) {
+      state.activeTab = tab;
+      document.querySelectorAll('.tab-panel').forEach((panel) => panel.classList.add('hidden'));
+      document.getElementById(`tab-${tab}`).classList.remove('hidden');
+      document.querySelectorAll('.tab-btn').forEach((btn) => {
+        const isActive = btn.dataset.tab === tab;
+        btn.className = [
+          'tab-btn rounded-lg px-3 py-2 text-sm font-semibold transition hover:bg-zinc-900',
+          isActive ? 'bg-zinc-900 text-yellow-300 shadow-glow' : 'text-zinc-300 hover:text-yellow-300',
+        ].join(' ');
+      });
+    }
+
+    function renderAll() {
+      renderSectors();
+      renderWatchlist();
+      renderPortfolio();
+      renderAllocation();
+      calculateRangePerformance(false);
+    }
+
+    function renderSectors() {
+      const grouped = getAllSectorsByMarket();
+      els.sectorsContainer.innerHTML = ['US', 'JP', 'HK'].map((market) => `
+        <section>
+          <div class="mb-4 flex items-center justify-between">
+            <div>
+              <h3 class="text-xl font-bold text-zinc-50">${marketLabels[market]}版塊</h3>
+              <p class="mt-1 text-sm text-zinc-500">${grouped[market].length} 個 ETF / 指數代理</p>
+            </div>
+          </div>
+          <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            ${grouped[market].map((item) => renderMarketCard(item.symbol, market, 'sector')).join('')}
+          </div>
+        </section>
+      `).join('');
+    }
+
+    function renderWatchlist() {
+      const grouped = groupByMarket(state.watchlist);
+      els.watchlistContainer.innerHTML = ['US', 'JP', 'HK'].map((market) => `
+        <section>
+          <div class="mb-4 flex items-center justify-between">
+            <div>
+              <h3 class="text-xl font-bold text-zinc-50">${marketLabels[market]}股票</h3>
+              <p class="mt-1 text-sm text-zinc-500">${grouped[market].length} 個觀察項目</p>
+            </div>
+          </div>
+          <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            ${grouped[market].length ? grouped[market].map(renderWatchCard).join('') : renderEmptyCard('尚未加入觀察股票')}
+          </div>
+        </section>
+      `).join('');
+
+      document.querySelectorAll('[data-toggle-watch]').forEach((btn) => {
+        btn.addEventListener('click', () => toggleWatchExpand(btn.dataset.toggleWatch));
+      });
+      document.querySelectorAll('[data-target-input]').forEach((input) => {
+        input.addEventListener('blur', () => saveTargetPrice(input.dataset.targetInput, input.value));
+      });
+      document.querySelectorAll('[data-save-target]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const input = document.querySelector(`[data-target-input="${btn.dataset.saveTarget}"]`);
+          saveTargetPrice(btn.dataset.saveTarget, input.value);
+        });
+      });
+      document.querySelectorAll('[data-memo-input]').forEach((input) => {
+        input.addEventListener('blur', () => saveWatchMemo(input.dataset.memoInput, input.value));
+      });
+      document.querySelectorAll('[data-save-memo]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const input = document.querySelector(`[data-memo-input="${btn.dataset.saveMemo}"]`);
+          saveWatchMemo(btn.dataset.saveMemo, input.value);
+        });
+      });
+      document.querySelectorAll('[data-delete-watch]').forEach((btn) => {
+        btn.addEventListener('click', () => deleteWatchItem(btn.dataset.deleteWatch));
+      });
+    }
+
+    function renderPortfolio() {
+      const allRows = state.portfolio.map((item) => getPortfolioMetrics(item));
+      const summaries = buildSummaries(allRows);
+      renderSummaries(summaries);
+      awaitFetchFxRates();
+
+      const filteredRows = filterPortfolioRows(allRows);
+      const sortedRows = sortPortfolioRows(filteredRows);
+
+      els.portfolioCount.textContent = `${filteredRows.length} / ${state.portfolio.length} 筆持倉`;
+      renderPortfolioHkdSummary(allRows);
+
+      if (!state.portfolio.length) {
+        els.portfolioTableContainer.innerHTML = `<div class="p-6">${renderEmptyCard('尚未新增持倉')}</div>`;
+        renderPortfolioHkdSummary([]);
+        return;
+      }
+
+      if (!filteredRows.length) {
+        els.portfolioTableContainer.innerHTML = `<div class="p-6">${renderEmptyCard('此篩選條件下沒有持倉')}</div>`;
+        return;
+      }
+
+      const totalPortfolioCostHkd = allRows.reduce((sum, row) => sum + convertToHkd(row.costTotal, row.currency), 0);
+
+      els.portfolioTableContainer.innerHTML = `
+        <table class="min-w-full divide-y divide-zinc-800 text-sm">
+          <thead class="bg-zinc-950/60 text-left text-xs uppercase tracking-wider text-zinc-400">
+            <tr>
+              <th class="px-4 py-3">Symbol</th>
+              <th class="px-4 py-3">名稱</th>
+              <th class="px-4 py-3 text-right">數量</th>
+              <th class="px-4 py-3 text-right">平均成本</th>
+              <th class="px-4 py-3">購入日期</th>
+              <th class="px-4 py-3 text-right">最新價</th>
+              <th class="px-4 py-3 text-right">當前市值</th>
+              ${renderSortableHeader('costTotal', '成本總額')}
+              ${renderSortableHeader('pnl', '盈虧')}
+              ${renderSortableHeader('pnlPct', '盈虧%')}
+              <th class="px-4 py-3">操作</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-zinc-800">
+            ${sortedRows.map((row) => renderPortfolioRow(row, totalPortfolioCostHkd)).join('')}
+          </tbody>
+        </table>
+      `;
+
+      document.querySelectorAll('[data-sort-field]').forEach((btn) => {
+        btn.addEventListener('click', () => togglePortfolioSort(btn.dataset.sortField));
+      });
+      document.querySelectorAll('[data-delete-portfolio]').forEach((btn) => {
+        btn.addEventListener('click', () => deletePortfolioItem(btn.dataset.deletePortfolio));
+      });
+      document.querySelectorAll('[data-reduce-portfolio]').forEach((btn) => {
+        btn.addEventListener('click', () => reducePortfolioItem(btn.dataset.reducePortfolio));
+      });
+      document.querySelectorAll('[data-close-portfolio]').forEach((btn) => {
+        btn.addEventListener('click', () => closePortfolioItem(btn.dataset.closePortfolio));
+      });
+    }
+
+    function renderSortableHeader(field, label) {
+      const active = state.portfolioSort.field === field;
+      const arrow = active ? (state.portfolioSort.direction === 'asc' ? '↑' : '↓') : '↕';
+      return `<th class="px-4 py-3 text-right">
+        <button data-sort-field="${field}" class="inline-flex items-center gap-1 font-semibold transition hover:text-yellow-300 ${active ? 'text-yellow-300' : ''}">
+          ${label} <span class="text-[10px]">${arrow}</span>
+        </button>
+      </th>`;
+    }
+
+    function filterPortfolioRows(rows) {
+      return rows.filter((row) => {
+        if (state.portfolioFilter === 'all') return true;
+        if (state.portfolioFilter === 'profit') return row.pnl > 0;
+        if (state.portfolioFilter === 'loss') return row.pnl < 0;
+        return row.market === state.portfolioFilter;
+      });
+    }
+
+    function sortPortfolioRows(rows) {
+      const { field, direction } = state.portfolioSort;
+      return [...rows].sort((a, b) => {
+        const left = Number(a[field] ?? 0);
+        const right = Number(b[field] ?? 0);
+        return direction === 'asc' ? left - right : right - left;
+      });
+    }
+
+    function togglePortfolioSort(field) {
+      if (state.portfolioSort.field === field) {
+        state.portfolioSort.direction = state.portfolioSort.direction === 'asc' ? 'desc' : 'asc';
+      } else {
+        state.portfolioSort = { field, direction: 'desc' };
+      }
+      renderPortfolio();
+    }
+
+    function getRealizedPnlHkd() {
+      return state.realizedTrades.reduce((sum, trade) => sum + convertToHkd(trade.realizedPnl, trade.currency), 0);
+    }
+
+    function renderPortfolioHkdSummary(rows) {
+      const totalCostHkd = rows.reduce((sum, row) => sum + convertToHkd(row.costTotal, row.currency), 0);
+      const holdingPnlHkd = rows.reduce((sum, row) => sum + convertToHkd(row.pnl, row.currency), 0);
+      const realizedPnlHkd = getRealizedPnlHkd();
+      const totalPnlHkd = holdingPnlHkd + realizedPnlHkd;
+      const totalValueHkd = totalCostHkd + holdingPnlHkd;
+      const totalPct = totalCostHkd > 0 ? (totalPnlHkd / totalCostHkd) * 100 : 0;
+      const holdingPct = totalCostHkd > 0 ? (holdingPnlHkd / totalCostHkd) * 100 : 0;
+      const realizedPct = totalCostHkd > 0 ? (realizedPnlHkd / totalCostHkd) * 100 : 0;
+
+      els.portfolioHkdSummary.innerHTML = `
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p class="text-sm font-semibold text-yellow-300">投資組合總結（HKD）</p>
+            <p class="mt-1 text-xs text-zinc-500">已按即時匯率折算所有持倉與已清算交易</p>
+          </div>
+          <div class="grid gap-2 text-sm sm:text-right">
+            <div><span class="text-zinc-400">總投入成本：</span><strong class="text-zinc-100">${formatMoney(totalCostHkd, 'HKD')}</strong></div>
+            <div><span class="text-zinc-400">當前總市值：</span><strong class="text-zinc-100">${formatMoney(totalValueHkd, 'HKD')}</strong></div>
+            <div><span class="text-zinc-400">持倉盈利：</span><strong class="${moneyClass(holdingPnlHkd)}">${formatMoney(holdingPnlHkd, 'HKD')} (${formatPercent(holdingPct)})</strong></div>
+            <div><span class="text-zinc-400">已清算盈利：</span><strong class="${moneyClass(realizedPnlHkd)}">${formatMoney(realizedPnlHkd, 'HKD')} (${formatPercent(realizedPct)})</strong></div>
+            <div><span class="text-zinc-400">總盈虧：</span><strong class="${moneyClass(totalPnlHkd)}">${formatMoney(totalPnlHkd, 'HKD')} (${formatPercent(totalPct)})</strong></div>
+          </div>
+        </div>
+      `;
+    }
+
+    const ALLOCATION_SEGMENTS = [
+      { key: 'US', label: '美股投資', color: '#60a5fa' },
+      { key: 'JP', label: '日股投資', color: '#fb923c' },
+      { key: 'HK', label: '港股投資', color: '#4ade80' },
+      { key: 'CASH', label: '現金', color: '#facc15' },
+    ];
+    const PIE_FILL_COLOR = '#09090b';
+    const PIE_STROKE_WIDTH = 3;
+
+    function getSortedCashDeposits() {
+      return [...state.cashDeposits].sort((a, b) => a.yearMonth.localeCompare(b.yearMonth));
+    }
+
+    function getCashTimeline() {
+      let balance = 0;
+      return getSortedCashDeposits().map((entry) => {
+        const amount = Number(entry.amount || 0);
+        const previousBalance = balance;
+        balance += amount;
+        return {
+          ...entry,
+          amount,
+          balance,
+          deltaFromPrevious: balance - previousBalance,
+        };
+      });
+    }
+
+    function getCashBalance() {
+      return getSortedCashDeposits().reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+    }
+
+    function getAllocationBreakdown() {
+      const rows = state.portfolio.map((item) => getPortfolioMetrics(item));
+      const marketValues = { US: 0, JP: 0, HK: 0 };
+      rows.forEach((row) => {
+        if (!marketValues[row.market]) marketValues[row.market] = 0;
+        marketValues[row.market] += convertToHkd(row.marketValue, row.currency);
+      });
+      const cashValue = getCashBalance();
+      return ALLOCATION_SEGMENTS.map((segment) => ({
+        ...segment,
+        value: segment.key === 'CASH' ? cashValue : (marketValues[segment.key] || 0),
+      }));
+    }
+
+    function renderAllocation() {
+      setDefaultCashMonth();
+      renderCashTrend();
+      renderAllocationPie();
+    }
+
+    function renderCashTrend() {
+      const timeline = getCashTimeline();
+      const currentBalance = getCashBalance();
+
+      els.cashBalanceSummary.innerHTML = `
+        <div><span class="text-zinc-500">目前現金餘額：</span><strong class="text-lg text-yellow-300">${formatMoney(currentBalance, 'HKD')}</strong></div>
+        <div class="text-xs text-zinc-500">${timeline.length} 個月份記錄</div>
+      `;
+
+      if (!timeline.length) {
+        els.cashTrendContainer.innerHTML = renderEmptyCard('尚未記錄每月現金存入');
+        return;
+      }
+
+      const maxAbsAmount = Math.max(...timeline.map((row) => Math.abs(row.amount)), 1);
+      const chartHeight = 140;
+      const chartWidth = Math.max(timeline.length * 56, 320);
+
+      const baseline = chartHeight / 2;
+      const bars = timeline.map((row, index) => {
+        const barHeight = Math.max(6, (Math.abs(row.amount) / maxAbsAmount) * ((chartHeight - 40) / 2));
+        const x = 36 + index * 56;
+        const isPositive = row.amount >= 0;
+        const y = isPositive ? baseline - barHeight : baseline;
+        const color = isPositive ? '#34d399' : '#f87171';
+        return `
+          <g>
+            <rect x="${x}" y="${y}" width="32" height="${barHeight}" rx="6" fill="${color}" opacity="0.85"></rect>
+            <text x="${x + 16}" y="${chartHeight + 18}" text-anchor="middle" fill="#a1a1aa" font-size="10">${escapeHtml(formatYearMonthShort(row.yearMonth))}</text>
+          </g>
+        `;
+      }).join('');
+
+      const balancePoints = timeline.map((row, index) => {
+        const x = 52 + index * 56;
+        const minBalance = Math.min(...timeline.map((item) => item.balance), 0);
+        const maxBalance = Math.max(...timeline.map((item) => item.balance), 1);
+        const range = maxBalance - minBalance || 1;
+        const y = 12 + ((maxBalance - row.balance) / range) * (chartHeight - 36);
+        return `${x},${y}`;
+      }).join(' ');
+
+      els.cashTrendContainer.innerHTML = `
+        <div class="overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+          <svg viewBox="0 0 ${chartWidth} ${chartHeight + 28}" class="mx-auto min-w-full" style="max-width:${chartWidth}px;height:auto">
+            <line x1="24" y1="${baseline}" x2="${chartWidth - 12}" y2="${baseline}" stroke="#3f3f46" stroke-width="1"></line>
+            <polyline points="${balancePoints}" fill="none" stroke="#facc15" stroke-width="2.5" stroke-linejoin="round"></polyline>
+            ${bars}
+          </svg>
+          <p class="mt-2 text-center text-xs text-zinc-500">柱狀：每月存入/取出　｜　折線：累積現金餘額</p>
+        </div>
+        <div class="mt-4 overflow-x-auto">
+          <table class="min-w-full divide-y divide-zinc-800 text-sm">
+            <thead class="bg-zinc-950/60 text-left text-xs uppercase tracking-wider text-zinc-400">
+              <tr>
+                <th class="px-4 py-3">月份</th>
+                <th class="px-4 py-3 text-right">本月變動</th>
+                <th class="px-4 py-3 text-right">累積現金</th>
+                <th class="px-4 py-3 text-right">較上月</th>
+                <th class="px-4 py-3">備註</th>
+                <th class="px-4 py-3">操作</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-zinc-800">
+              ${timeline.map((row, index) => {
+                const previousBalance = index > 0 ? timeline[index - 1].balance : 0;
+                const deltaFromPrevious = row.balance - previousBalance;
+                const trendLabel = index === 0
+                  ? (row.amount >= 0 ? '起始存入' : '起始取出')
+                  : (deltaFromPrevious >= 0 ? `↑ ${formatMoney(deltaFromPrevious, 'HKD')}` : `↓ ${formatMoney(Math.abs(deltaFromPrevious), 'HKD')}`);
+                return `
+                  <tr class="bg-zinc-900/40">
+                    <td class="whitespace-nowrap px-4 py-4 font-semibold text-zinc-100">${escapeHtml(formatYearMonthLabel(row.yearMonth))}</td>
+                    <td class="px-4 py-4 text-right font-bold ${moneyClass(row.amount)}">${formatMoney(row.amount, 'HKD')}</td>
+                    <td class="px-4 py-4 text-right font-semibold text-zinc-100">${formatMoney(row.balance, 'HKD')}</td>
+                    <td class="px-4 py-4 text-right ${moneyClass(deltaFromPrevious)}">${trendLabel}</td>
+                    <td class="px-4 py-4 text-zinc-400">${escapeHtml(row.note || '—')}</td>
+                    <td class="px-4 py-4">
+                      <button data-delete-cash="${row.id}" class="rounded-lg border border-red-500/30 px-3 py-2 text-xs font-bold text-red-300 transition hover:bg-red-500 hover:text-white">刪除</button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      document.querySelectorAll('[data-delete-cash]').forEach((btn) => {
+        btn.addEventListener('click', () => deleteCashDeposit(btn.dataset.deleteCash));
+      });
+    }
+
+    function renderAllocationPie() {
+      const segments = getAllocationBreakdown();
+      const total = segments.reduce((sum, segment) => sum + segment.value, 0);
+      const positiveSegments = segments.filter((segment) => segment.value > 0);
+
+      if (total <= 0) {
+        els.allocationPieContainer.innerHTML = renderEmptyCard('尚無投資組合或現金資料可計算配置');
+        els.allocationLegendContainer.innerHTML = '';
+        els.allocationTotalSummary.innerHTML = '';
+        return;
+      }
+
+      const size = 280;
+      const cx = size / 2;
+      const cy = size / 2;
+      const radius = 108;
+      let angle = -Math.PI / 2;
+      const paths = positiveSegments.map((segment) => {
+        const fraction = segment.value / total;
+        const sweep = fraction * Math.PI * 2;
+        const startX = cx + radius * Math.cos(angle);
+        const startY = cy + radius * Math.sin(angle);
+        angle += sweep;
+        const endX = cx + radius * Math.cos(angle);
+        const endY = cy + radius * Math.sin(angle);
+        const largeArc = sweep > Math.PI ? 1 : 0;
+        const path = `M ${cx} ${cy} L ${startX} ${startY} A ${radius} ${radius} 0 ${largeArc} 1 ${endX} ${endY} Z`;
+        return {
+          ...segment,
+          fraction,
+          path,
+        };
+      });
+
+      els.allocationPieContainer.innerHTML = `
+        <div class="relative">
+          <svg id="allocation-pie-svg" viewBox="0 0 ${size} ${size}" class="h-[280px] w-[280px]">
+            ${paths.map((segment) => `
+              <path
+                d="${segment.path}"
+                fill="${PIE_FILL_COLOR}"
+                stroke="${segment.color}"
+                stroke-width="${PIE_STROKE_WIDTH}"
+                stroke-linejoin="round"
+                class="allocation-pie-slice"
+                data-allocation-key="${segment.key}"
+                data-stroke-color="${segment.color}"
+              ></path>
+            `).join('')}
+          </svg>
+          <div id="allocation-pie-tooltip" class="pointer-events-none absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 rounded-xl border border-yellow-400/40 bg-zinc-950/95 px-4 py-3 text-center text-sm shadow-2xl">
+            <div id="allocation-pie-tooltip-label" class="font-bold text-yellow-300"></div>
+            <div id="allocation-pie-tooltip-value" class="mt-1 text-zinc-100"></div>
+            <div id="allocation-pie-tooltip-pct" class="mt-1 text-xs text-zinc-400"></div>
+          </div>
+        </div>
+      `;
+
+      els.allocationLegendContainer.innerHTML = segments.map((segment) => {
+        const pct = total > 0 ? (segment.value / total) * 100 : 0;
+        return `
+          <div class="flex items-center justify-between gap-4 rounded-xl border border-zinc-800 bg-zinc-950/70 px-4 py-3">
+            <div class="flex items-center gap-3">
+              <span class="h-3 w-3 rounded-full border-2 bg-zinc-950" style="border-color:${segment.color}"></span>
+              <span class="font-semibold text-zinc-100">${segment.label}</span>
+            </div>
+            <div class="text-right">
+              <div class="font-bold text-zinc-50">${formatMoney(segment.value, 'HKD')}</div>
+              <div class="text-xs text-zinc-500">${pct.toFixed(1)}%</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      const portfolioTotal = segments.filter((segment) => segment.key !== 'CASH').reduce((sum, segment) => sum + segment.value, 0);
+      const cashTotal = segments.find((segment) => segment.key === 'CASH')?.value || 0;
+      els.allocationTotalSummary.innerHTML = `
+        <div class="grid gap-3 sm:grid-cols-3">
+          <div><span class="text-zinc-500">投資組合總市值（HKD）：</span><strong class="text-zinc-100">${formatMoney(portfolioTotal, 'HKD')}</strong></div>
+          <div><span class="text-zinc-500">現金餘額（HKD）：</span><strong class="text-zinc-100">${formatMoney(cashTotal, 'HKD')}</strong></div>
+          <div><span class="text-zinc-500">總資產（HKD）：</span><strong class="text-yellow-300">${formatMoney(total, 'HKD')}</strong></div>
+        </div>
+      `;
+
+      bindAllocationPieHover(paths, total);
+    }
+
+    function bindAllocationPieHover(paths, total) {
+      const tooltip = document.getElementById('allocation-pie-tooltip');
+      const labelEl = document.getElementById('allocation-pie-tooltip-label');
+      const valueEl = document.getElementById('allocation-pie-tooltip-value');
+      const pctEl = document.getElementById('allocation-pie-tooltip-pct');
+      if (!tooltip || !labelEl || !valueEl || !pctEl) return;
+
+      const segmentMap = new Map(paths.map((segment) => [segment.key, segment]));
+      document.querySelectorAll('.allocation-pie-slice').forEach((slice) => {
+        slice.addEventListener('mouseenter', () => {
+          const segment = segmentMap.get(slice.dataset.allocationKey);
+          if (!segment) return;
+          labelEl.textContent = segment.label;
+          labelEl.style.color = segment.color;
+          valueEl.textContent = formatMoney(segment.value, 'HKD');
+          pctEl.textContent = `${((segment.value / total) * 100).toFixed(1)}%`;
+          tooltip.classList.remove('hidden');
+        });
+        slice.addEventListener('mouseleave', () => {
+          labelEl.style.color = '';
+          tooltip.classList.add('hidden');
+        });
+      });
+    }
+
+    function prefillCashDepositForm() {
+      const yearMonth = document.getElementById('cash-month-input').value;
+      const existing = state.cashDeposits.find((entry) => entry.yearMonth === yearMonth);
+      document.getElementById('cash-amount-input').value = existing ? existing.amount : '';
+      document.getElementById('cash-note-input').value = existing?.note || '';
+    }
+
+    function saveCashDeposit(event) {
+      event.preventDefault();
+      const yearMonth = document.getElementById('cash-month-input').value;
+      const amount = Number(document.getElementById('cash-amount-input').value);
+      const note = document.getElementById('cash-note-input').value.trim();
+
+      if (!yearMonth) {
+        toast('請選擇月份', 'error');
+        return;
+      }
+      if (!Number.isFinite(amount) || amount === 0) {
+        toast('請輸入非零金額', 'error');
+        return;
+      }
+
+      const existingIndex = state.cashDeposits.findIndex((entry) => entry.yearMonth === yearMonth);
+      const payload = {
+        id: existingIndex >= 0 ? state.cashDeposits[existingIndex].id : createId(),
+        yearMonth,
+        amount,
+        note,
+        addedAt: existingIndex >= 0 ? state.cashDeposits[existingIndex].addedAt : new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      if (existingIndex >= 0) state.cashDeposits[existingIndex] = payload;
+      else state.cashDeposits.push(payload);
+
+      saveJson(CASH_DEPOSITS_KEY, state.cashDeposits);
+      document.getElementById('cash-amount-input').value = '';
+      document.getElementById('cash-note-input').value = '';
+      renderAllocation();
+      toast(`${formatYearMonthLabel(yearMonth)} 現金記錄已儲存`, 'success');
+    }
+
+    function deleteCashDeposit(id) {
+      const entry = state.cashDeposits.find((item) => item.id === id);
+      state.cashDeposits = state.cashDeposits.filter((item) => item.id !== id);
+      saveJson(CASH_DEPOSITS_KEY, state.cashDeposits);
+      renderAllocation();
+      toast(`${formatYearMonthLabel(entry?.yearMonth || '')} 記錄已刪除`, 'success');
+    }
+
+    async function refreshAllocation(force = false) {
+      setBusy(true);
+      try {
+        await hydrateSymbols(state.portfolio.map((item) => item.symbol), force);
+        await fetchFxRates();
+        renderAllocation();
+        toast('資產配置已更新', 'success');
+      } catch (error) {
+        console.error(error);
+        toast('資產配置更新失敗', 'error');
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    function setDefaultCashMonth() {
+      const input = document.getElementById('cash-month-input');
+      if (input && !input.value) {
+        const now = new Date();
+        input.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      }
+    }
+
+    function formatYearMonthLabel(yearMonth) {
+      if (!yearMonth) return '--';
+      const [year, month] = yearMonth.split('-');
+      return `${year} 年 ${Number(month)} 月`;
+    }
+
+    function formatYearMonthShort(yearMonth) {
+      if (!yearMonth) return '--';
+      const [, month] = yearMonth.split('-');
+      return `${Number(month)}月`;
+    }
+
+    function convertToHkd(amount, currency) {
+      const value = Number(amount);
+      if (!Number.isFinite(value)) return 0;
+      if (currency === 'HKD') return value;
+      if (currency === 'USD') return value * state.fxRates.USDHKD;
+      if (currency === 'JPY') return value * state.fxRates.JPYHKD;
+      return value;
+    }
+
+    async function awaitFetchFxRates() {
+      fetchFxRates().catch((error) => console.warn('FX fetch skipped', error));
+    }
+
+    async function fetchFxRates() {
+      try {
+        const [usdHkdChart, usdJpyChart] = await Promise.all([
+          fetchYahooChart(FX_SYMBOLS.USDHKD, '5d', '1d', false),
+          fetchYahooChart(FX_SYMBOLS.USDJPY, '5d', '1d', false),
+        ]);
+        const usdHkd = parseQuoteFromChart(usdHkdChart)?.c;
+        const usdJpy = parseQuoteFromChart(usdJpyChart)?.c;
+        if (usdHkd > 0) state.fxRates.USDHKD = usdHkd;
+        if (usdHkd > 0 && usdJpy > 0) state.fxRates.JPYHKD = usdHkd / usdJpy;
+      } catch (error) {
+        console.warn('Unable to refresh FX rates', error);
+      }
+    }
+
+    function renderMarketCard(symbol, market, type) {
+      const quote = state.quotes[symbol];
+      const profile = state.profiles[symbol];
+      const weekly = state.weeklyStats[symbol];
+      const cardId = `${type}-${symbol}`;
+      const hasData = quote || weekly || profile;
+
+      if (!hasData) return renderSkeletonCard(symbol);
+
+      const momentumClass = weekly?.momentumSignal
+        ? 'border-emerald-400/70 bg-emerald-950/40 shadow-emerald-500/20'
+        : 'border-zinc-800 bg-zinc-900/80 hover:border-yellow-400/50';
+
+      return `
+        <article id="${cardId}" class="group rounded-2xl border ${momentumClass} p-5 shadow-lg transition hover:-translate-y-1 hover:shadow-glow">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <h4 class="text-2xl font-black text-yellow-300">${escapeHtml(symbol)}</h4>
+                ${weekly?.momentumSignal ? '<span class="rounded-full border border-emerald-400/60 bg-emerald-500/20 px-2.5 py-1 text-xs font-bold text-emerald-200">OS4 量價齊升</span>' : ''}
+              </div>
+              <p class="mt-1 line-clamp-2 min-h-[2.5rem] text-sm leading-5 text-zinc-400">${escapeHtml(profile?.name || '名稱載入中 / 暫無資料')}</p>
+            </div>
+            <span class="rounded-full border border-zinc-700 px-3 py-1 text-xs font-bold text-zinc-300">${marketLabels[market]}</span>
+          </div>
+          <div class="mt-5 grid grid-cols-2 gap-3">
+            <div class="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
+              <p class="text-xs text-zinc-500">最新價格</p>
+              <p class="mt-2 text-2xl font-black text-zinc-50">${quote?.c ? formatMoney(quote.c, quote.currency || currencyByMarket[market]) : '--'}</p>
+              ${quote?.unavailable ? `<p class="mt-1 text-xs text-amber-300">${escapeHtml(quote.message)}</p>` : ''}
+            </div>
+            <div class="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
+              <p class="text-xs text-zinc-500">3週平均週線</p>
+              <p class="mt-2 text-2xl font-black ${percentClass(weekly?.avgChangePct)}">${formatPercent(weekly?.avgChangePct)}</p>
+            </div>
+          </div>
+          ${weekly?.avg52WeekVolume ? `<p class="mt-3 text-xs text-zinc-500">52週平均週成交量：<span class="font-semibold text-zinc-300">${formatVolumeM(weekly.avg52WeekVolume)}</span></p>` : ''}
+          ${renderWeeklyTable(weekly, { showAvgLine: true })}
+        </article>
+      `;
+    }
+
+    function renderWatchCard(item) {
+      const quote = state.quotes[item.symbol];
+      const weekly = state.weeklyStats[item.symbol];
+      const target = Number(item.targetPrice);
+      const currentPrice = Number(quote?.c);
+      const isTargetHit = target > 0 && currentPrice > 0 && currentPrice <= target;
+      const isExpanded = state.expandedWatchIds.has(item.id);
+      const cardClass = isTargetHit
+        ? 'border-emerald-400/70 bg-emerald-950/40 shadow-emerald-500/10'
+        : 'border-zinc-800 bg-zinc-900/80 hover:border-yellow-400/50';
+
+      return `
+        <article class="rounded-2xl border ${cardClass} p-5 shadow-lg transition hover:-translate-y-1 hover:shadow-glow">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <h4 class="text-2xl font-black text-yellow-300">${escapeHtml(item.symbol)}</h4>
+                <span class="rounded-full border border-zinc-700 px-2.5 py-1 text-xs font-bold text-zinc-300">${marketLabels[item.market]}</span>
+                ${isTargetHit ? '<span class="rounded-full border border-emerald-400/60 bg-emerald-500/20 px-2.5 py-1 text-xs font-bold text-emerald-200">🎯 已達目標</span>' : ''}
+              </div>
+              <p class="mt-1 line-clamp-1 text-sm text-zinc-400">${escapeHtml(item.name || state.profiles[item.symbol]?.name || '')}</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button data-toggle-watch="${item.id}" class="rounded-lg border border-yellow-400/40 px-3 py-2 text-sm font-bold text-yellow-300 transition hover:bg-yellow-400 hover:text-zinc-950">${isExpanded ? '−' : '+'}</button>
+              <button data-delete-watch="${item.id}" class="rounded-lg border border-red-500/30 px-3 py-2 text-xs font-bold text-red-300 transition hover:bg-red-500 hover:text-white">刪除</button>
+            </div>
+          </div>
+
+          <div class="mt-4 grid grid-cols-2 gap-3">
+            <div class="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
+              <p class="text-xs text-zinc-500">最新價格</p>
+              <p class="mt-2 text-xl font-black text-zinc-50">${quote?.c ? formatMoney(quote.c, quote.currency || currencyByMarket[item.market]) : '--'}</p>
+            </div>
+            <div class="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
+              <p class="text-xs text-zinc-500">3週平均週線</p>
+              <p class="mt-2 text-xl font-black ${percentClass(weekly?.avgChangePct)}">${formatPercent(weekly?.avgChangePct)}</p>
+            </div>
+          </div>
+
+          ${isExpanded ? `
+            <div class="mt-4 space-y-4 border-t border-zinc-800 pt-4">
+              <div class="rounded-xl border border-zinc-800 bg-zinc-950 p-4 text-sm">
+                <p class="text-xs text-zinc-500">已儲存目標價</p>
+                <p class="mt-1 font-semibold text-zinc-100">${item.targetPrice ? formatMoney(item.targetPrice, quote?.currency || currencyByMarket[item.market]) : '尚未設定'}</p>
+              </div>
+              ${weekly?.avg52WeekVolume ? `<p class="text-xs text-zinc-500">52週平均週成交量：<span class="font-semibold text-zinc-300">${formatVolumeM(weekly.avg52WeekVolume)}</span></p>` : ''}
+              ${renderWeeklyTable(weekly, { showAvgLine: true, weeksField: 'watchWeeks' })}
+              <div>
+                <p class="mb-2 text-xs font-semibold text-zinc-400">目標下跌價</p>
+                <div class="grid gap-2 sm:grid-cols-[1fr_auto]">
+                  <input data-target-input="${item.id}" type="number" min="0" step="0.0001" value="${item.targetPrice || ''}" placeholder="目標下跌價" class="rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-yellow-400" />
+                  <button data-save-target="${item.id}" class="rounded-xl border border-yellow-400/40 px-4 py-3 text-sm font-bold text-yellow-300 transition hover:bg-yellow-400 hover:text-zinc-950">儲存</button>
+                </div>
+              </div>
+              <div>
+                <p class="mb-2 text-xs font-semibold text-zinc-400">備忘</p>
+                <textarea data-memo-input="${item.id}" rows="3" placeholder="輸入觀察備忘..." class="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-yellow-400">${escapeHtml(item.memo || '')}</textarea>
+                <button data-save-memo="${item.id}" class="mt-2 rounded-xl border border-yellow-400/40 px-4 py-2 text-sm font-bold text-yellow-300 transition hover:bg-yellow-400 hover:text-zinc-950">儲存備忘</button>
+              </div>
+            </div>
+          ` : ''}
+        </article>
+      `;
+    }
+
+    function toggleWatchExpand(id) {
+      if (state.expandedWatchIds.has(id)) state.expandedWatchIds.delete(id);
+      else state.expandedWatchIds.add(id);
+      renderWatchlist();
+    }
+
+    function renderPortfolioRow(row, totalPortfolioCostHkd) {
+      const lossHkd = row.pnl < 0 ? Math.abs(convertToHkd(row.pnl, row.currency)) : 0;
+      const warning = row.pnl < 0 && totalPortfolioCostHkd > 0 && lossHkd > totalPortfolioCostHkd * 0.02;
+      return `
+        <tr class="${warning ? 'bg-red-950/40' : 'bg-zinc-900/40'} transition hover:bg-zinc-800/70">
+          <td class="whitespace-nowrap px-4 py-4">
+            <div class="font-black text-yellow-300">${escapeHtml(row.symbol)}</div>
+            <div class="text-xs text-zinc-500">${row.currency}</div>
+          </td>
+          <td class="min-w-[180px] px-4 py-4 text-zinc-300">
+            ${warning ? '<span class="mb-1 inline-block rounded-full border border-red-400/50 bg-red-500/10 px-2 py-1 text-xs font-bold text-red-200">⚠️ 虧損超過總投入 2%</span><br>' : ''}
+            ${escapeHtml(row.name || '名稱載入中 / 暫無資料')}
+          </td>
+          <td class="px-4 py-4 text-right text-zinc-200">${formatNumber(row.quantity, 4)}</td>
+          <td class="px-4 py-4 text-right text-zinc-200">${formatMoney(row.avgCost, row.currency)}</td>
+          <td class="whitespace-nowrap px-4 py-4 text-zinc-400">${escapeHtml(row.purchaseDate)}</td>
+          <td class="px-4 py-4 text-right text-zinc-200">${row.latestPrice ? formatMoney(row.latestPrice, row.currency) : '--'}</td>
+          <td class="px-4 py-4 text-right font-semibold text-zinc-100">${formatMoney(row.marketValue, row.currency)}</td>
+          <td class="px-4 py-4 text-right text-zinc-300">${formatMoney(row.costTotal, row.currency)}</td>
+          <td class="px-4 py-4 text-right font-bold ${moneyClass(row.pnl)}">${formatMoney(row.pnl, row.currency)}</td>
+          <td class="px-4 py-4 text-right font-bold ${percentClass(row.pnlPct)}">${formatPercent(row.pnlPct)}</td>
+          <td class="px-4 py-4">
+            <div class="flex flex-wrap gap-2">
+              <button data-reduce-portfolio="${row.id}" class="rounded-lg border border-amber-400/40 px-3 py-2 text-xs font-bold text-amber-200 transition hover:bg-amber-400 hover:text-zinc-950">減持</button>
+              <button data-close-portfolio="${row.id}" class="rounded-lg border border-orange-400/40 px-3 py-2 text-xs font-bold text-orange-200 transition hover:bg-orange-400 hover:text-zinc-950">清倉</button>
+              <button data-delete-portfolio="${row.id}" class="rounded-lg border border-red-500/30 px-3 py-2 text-xs font-bold text-red-300 transition hover:bg-red-500 hover:text-white">刪除</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }
+
+    function renderSummaries(summaries) {
+      els.summaryContainer.innerHTML = ['USD', 'HKD', 'JPY'].map((currency) => {
+        const data = summaries[currency] || { cost: 0, value: 0, pnl: 0, pnlPct: 0 };
+        return `
+          <article class="rounded-2xl border border-zinc-800 bg-slate-900/80 p-5 shadow-lg">
+            <p class="text-sm font-semibold text-yellow-300">${currency} 持倉總覽</p>
+            <div class="mt-4 space-y-3">
+              <div class="flex justify-between gap-4 text-sm"><span class="text-zinc-400">總投入成本</span><strong>${formatMoney(data.cost, currency)}</strong></div>
+              <div class="flex justify-between gap-4 text-sm"><span class="text-zinc-400">當前總市值</span><strong class="text-zinc-50">${formatMoney(data.value, currency)}</strong></div>
+              <div class="flex justify-between gap-4 text-sm"><span class="text-zinc-400">總盈虧</span><strong class="${moneyClass(data.pnl)}">${formatMoney(data.pnl, currency)} (${formatPercent(data.pnlPct)})</strong></div>
+            </div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    function renderWeeklyTable(weekly, options = {}) {
+      const { showAvgLine = false, weeksField = 'weeks' } = options;
+      const weeks = weekly?.[weeksField] ?? weekly?.weeks ?? [];
+      if (!weeks.length) {
+        return `
+          <div class="mt-5 rounded-xl border border-zinc-800 bg-zinc-950 p-4">
+            <p class="text-sm text-zinc-500">${escapeHtml(weekly?.message || '週線資料暫無法取得。')}</p>
+          </div>
+        `;
+      }
+      return `
+        <div class="mt-5 overflow-hidden rounded-xl border border-zinc-800">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-zinc-950 text-zinc-500">
+              <tr>
+                <th class="px-3 py-2">週別 (Mon-Fri)</th>
+                <th class="px-3 py-2 text-right">升跌%</th>
+                <th class="px-3 py-2 text-right">成交量</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-zinc-800 bg-zinc-900/40">
+              ${weeks.map((week) => `
+                <tr>
+                  <td class="px-3 py-2 text-zinc-400">${week.label}</td>
+                  <td class="px-3 py-2 text-right font-bold ${percentClass(week.changePct)}">${formatPercent(week.changePct)}</td>
+                  <td class="px-3 py-2 text-right ${showAvgLine && weekly.avg52WeekVolume && week.volume > weekly.avg52WeekVolume ? 'text-emerald-300 font-bold' : 'text-zinc-300'}">${formatVolumeM(week.volume)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderSkeletonCard(symbol) {
+      return `
+        <article class="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-5 shadow-lg">
+          <h4 class="text-2xl font-black text-yellow-300">${escapeHtml(symbol)}</h4>
+          <div class="mt-3 h-4 w-2/3 rounded skeleton"></div>
+          <div class="mt-5 grid grid-cols-2 gap-3">
+            <div class="h-24 rounded-xl skeleton"></div>
+            <div class="h-24 rounded-xl skeleton"></div>
+          </div>
+          <div class="mt-5 h-32 rounded-xl skeleton"></div>
+        </article>
+      `;
+    }
+
+    function renderEmptyCard(message) {
+      return `<div class="rounded-2xl border border-dashed border-zinc-700 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500 md:col-span-2 xl:col-span-3">${message}</div>`;
+    }
+
+    function collectAllSymbols() {
+      const sectorSymbols = Object.values(getAllSectorsByMarket()).flat().map((item) => item.symbol);
+      const watchSymbols = state.watchlist.map((item) => item.symbol);
+      const portfolioSymbols = state.portfolio.map((item) => item.symbol);
+      return unique([...sectorSymbols, ...watchSymbols, ...portfolioSymbols].filter(Boolean));
+    }
+
+    async function refreshAllData(force = false, options = {}) {
+      const { showSuccessToast = true } = options;
+      setBusy(true);
+      try {
+        await hydrateSymbols(collectAllSymbols(), force);
+        await fetchFxRates();
+        renderSectors();
+        renderWatchlist();
+        renderPortfolio();
+        renderAllocation();
+        calculateRangePerformance(false);
+
+        const loadedCount = Object.values(state.quotes).filter((quote) => Number(quote?.c) > 0).length;
+        if (loadedCount > 0) {
+          if (showSuccessToast) toast(`所有數據已更新（${loadedCount} 個標的）`, 'success');
+        } else {
+          toast('無法取得股價，請用 python server.py 啟動本機伺服器', 'error');
+        }
+      } catch (error) {
+        console.error(error);
+        toast(error.message || '更新所有數據時發生錯誤', 'error');
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function refreshSectors(force = false) {
+      setBusy(true);
+      try {
+        const symbols = unique(Object.values(getAllSectorsByMarket()).flat().map((item) => item.symbol));
+        await hydrateSymbols(symbols, force);
+        renderSectors();
+      } catch (error) {
+        console.error(error);
+        toast('版塊資料更新失敗', 'error');
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function refreshWatchlist(force = false) {
+      setBusy(true);
+      try {
+        await hydrateSymbols(state.watchlist.map((item) => item.symbol), force);
+        renderWatchlist();
+      } catch (error) {
+        console.error(error);
+        toast('觀察清單更新失敗', 'error');
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function refreshPortfolio(force = false) {
+      setBusy(true);
+      try {
+        await hydrateSymbols(state.portfolio.map((item) => item.symbol), force);
+        await fetchFxRates();
+        renderPortfolio();
+        renderAllocation();
+        calculateRangePerformance(false);
+      } catch (error) {
+        console.error(error);
+        toast('投資組合更新失敗', 'error');
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function hydrateSymbols(symbols, force = false) {
+      const cleanSymbols = unique(symbols.filter(Boolean).map(normalizeSymbol));
+      for (const symbol of cleanSymbols) {
+        try {
+          const market = getMarketForSymbol(symbol);
+          const resolved = await resolveSymbol(symbol, market, force);
+          const apiSymbol = resolved.symbol || symbol;
+          state.symbolMeta[symbol] = resolved;
+
+          const [dailyChart, yearDailyChart] = await Promise.all([
+            fetchYahooChart(apiSymbol, '5d', '1d', force),
+            fetchYahooChart(apiSymbol, '1y', '1d', force),
+          ]);
+
+          const quote = parseQuoteFromChart(dailyChart);
+          const profile = parseProfileFromChart(dailyChart, resolved);
+          const weekly = parseWeeklyStatsFromDaily(yearDailyChart);
+
+          if (quote) state.quotes[symbol] = quote;
+          if (profile) state.profiles[symbol] = profile;
+          if (weekly) state.weeklyStats[symbol] = weekly;
+
+          if (state.activeTab === 'sectors') renderSectors();
+          if (state.activeTab === 'watchlist') renderWatchlist();
+          if (state.activeTab === 'portfolio') renderPortfolio();
+          if (state.activeTab === 'allocation') renderAllocation();
+        } catch (error) {
+          console.error(`hydrate ${symbol} failed`, error);
+        }
+      }
+    }
+
+    async function getQuote(symbol, force = false) {
+      try {
+        const chart = await fetchYahooChart(symbol, '5d', '1d', force);
+        return parseQuoteFromChart(chart);
+      } catch (error) {
+        console.error(error);
+        toast(`${symbol} 最新價格取得失敗`, 'error');
+        return null;
+      }
+    }
+
+    async function getProfile(symbol, force = false, resolved = null) {
+      try {
+        const chart = await fetchYahooChart(symbol, '5d', '1d', force);
+        return parseProfileFromChart(chart, resolved || state.symbolMeta[symbol]);
+      } catch (error) {
+        console.error(error);
+        toast(`${symbol} 名稱取得失敗`, 'error');
+        return { name: symbol };
+      }
+    }
+
+    async function getWeeklyStats(symbol, force = false) {
+      try {
+        const chart = await fetchYahooChart(symbol, '1y', '1d', force);
+        return parseWeeklyStatsFromDaily(chart);
+      } catch (error) {
+        console.error(error);
+        toast(`${symbol} 週線資料取得失敗`, 'error');
+        return { avgChangePct: null, weeks: [], unavailable: true, message: '週線資料取得失敗' };
+      }
+    }
+
+    async function fetchYahooChart(symbol, range, interval, force = false) {
+      const encodedSymbol = encodeURIComponent(symbol);
+      const cacheKey = `chart:${symbol}:${range}:${interval}`;
+      const params = `range=${range}&interval=${interval}&includePrePost=false`;
+      const url = `${YAHOO_API_BASE}/v8/finance/chart/${encodedSymbol}?${params}`;
+      const data = await cachedFetch(cacheKey, url, force);
+      const result = data?.chart?.result?.[0];
+      if (!result) throw new Error(data?.chart?.error?.description || data?.error || 'Yahoo chart 無資料');
+      return result;
+    }
+
+    function parseQuoteFromChart(chartResult) {
+      if (!chartResult) {
+        return { c: 0, d: 0, dp: 0, unavailable: true, message: '無法取得報價資料' };
+      }
+
+      const meta = chartResult.meta || {};
+      const quoteSeries = chartResult.indicators?.quote?.[0] || {};
+      const closes = (quoteSeries.close || []).filter((value) => Number.isFinite(value));
+      const current = Number(meta.regularMarketPrice ?? closes[closes.length - 1]);
+      const previous = Number(closes.length >= 2 ? closes[closes.length - 2] : meta.chartPreviousClose ?? meta.previousClose);
+
+      if (!Number.isFinite(current) || current <= 0) {
+        return { c: 0, d: 0, dp: 0, unavailable: true, message: '此 Symbol 暫無報價資料' };
+      }
+
+      const change = Number.isFinite(previous) ? current - previous : 0;
+      const changePct = Number.isFinite(previous) && previous !== 0 ? (change / previous) * 100 : 0;
+
+      return {
+        c: current,
+        d: change,
+        dp: changePct,
+        o: meta.regularMarketOpen,
+        h: meta.regularMarketDayHigh,
+        l: meta.regularMarketDayLow,
+        pc: previous,
+        currency: meta.currency,
+      };
+    }
+
+    function parseProfileFromChart(chartResult, resolved = null) {
+      const meta = chartResult?.meta || {};
+      return {
+        name: meta.longName || meta.shortName || resolved?.name || meta.symbol || '',
+        type: meta.instrumentType || resolved?.type || 'unknown',
+        currency: meta.currency,
+        exchange: meta.fullExchangeName || meta.exchangeName,
+      };
+    }
+
+    function parseDailyCandles(chartResult) {
+      if (!chartResult) return [];
+      const timestamps = chartResult.timestamp || [];
+      const quoteSeries = chartResult.indicators?.quote?.[0] || {};
+      return timestamps.map((time, index) => ({
+        time,
+        date: new Date(time * 1000),
+        open: Number(quoteSeries.open?.[index]),
+        close: Number(quoteSeries.close?.[index]),
+        volume: Number(quoteSeries.volume?.[index]) || 0,
+      })).filter((candle) => candle.open > 0 && candle.close > 0);
+    }
+
+    function getMondayKey(date) {
+      const utc = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+      const day = utc.getUTCDay() || 7;
+      utc.setUTCDate(utc.getUTCDate() - day + 1);
+      return utc.toISOString().slice(0, 10);
+    }
+
+    function buildMonFriWeeks(dailyCandles, options = {}) {
+      const { requireFullWeek = true, includeCurrentWeek = false } = options;
+      const weekMap = new Map();
+
+      dailyCandles.forEach((candle) => {
+        const day = candle.date.getUTCDay();
+        if (day === 0 || day === 6) return;
+
+        const weekKey = getMondayKey(candle.date);
+        if (!weekMap.has(weekKey)) weekMap.set(weekKey, { weekKey, candles: [] });
+        weekMap.get(weekKey).candles.push(candle);
+      });
+
+      const today = new Date();
+      const todayUtc = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+
+      return [...weekMap.values()]
+        .map((week) => {
+          const sorted = [...week.candles].sort((a, b) => a.date - b.date);
+          const first = sorted[0];
+          const last = sorted[sorted.length - 1];
+          const weekdays = sorted.map((candle) => candle.date.getUTCDay());
+          const volume = sorted.reduce((sum, candle) => sum + candle.volume, 0);
+          return {
+            weekKey: week.weekKey,
+            firstDate: first?.date || null,
+            lastDate: last?.date || null,
+            open: first?.open || 0,
+            close: last?.close || 0,
+            volume,
+            weekdays,
+            dayCount: sorted.length,
+          };
+        })
+        .filter((week) => {
+          if (!week.open || !week.close || !week.firstDate || !week.lastDate) return false;
+          if (!includeCurrentWeek && week.lastDate >= todayUtc) return false;
+          if (requireFullWeek) {
+            const weekdaySet = new Set(week.weekdays);
+            const hasFullWeek = [1, 2, 3, 4, 5].every((d) => weekdaySet.has(d));
+            const weekEnded = week.lastDate < todayUtc;
+            return hasFullWeek && weekEnded;
+          }
+          return week.dayCount > 0;
+        })
+        .map((week) => ({
+          label: `${formatDateShort(week.firstDate)} - ${formatDateShort(week.lastDate)}`,
+          changePct: ((week.close - week.open) / week.open) * 100,
+          volume: week.volume,
+          weekKey: week.weekKey,
+        }))
+        .sort((a, b) => a.weekKey.localeCompare(b.weekKey));
+    }
+
+    function parseWeeklyStatsFromDaily(chartResult) {
+      const dailyCandles = parseDailyCandles(chartResult);
+      const completeWeeks = buildMonFriWeeks(dailyCandles, { requireFullWeek: true });
+      const watchWeeks = buildMonFriWeeks(dailyCandles, { requireFullWeek: false, includeCurrentWeek: true }).slice(-4);
+
+      if (!completeWeeks.length && !watchWeeks.length) {
+        return {
+          avgChangePct: null,
+          weeks: [],
+          watchWeeks: [],
+          avg52WeekVolume: null,
+          momentumSignal: false,
+          unavailable: true,
+          message: '暫無 Mon-Fri 週線資料',
+        };
+      }
+
+      const lastThree = completeWeeks.slice(-3);
+      const last52 = completeWeeks.slice(-52);
+      const avgChangePct = lastThree.length
+        ? lastThree.reduce((sum, week) => sum + week.changePct, 0) / lastThree.length
+        : null;
+      const avg52WeekVolume = last52.length
+        ? last52.reduce((sum, week) => sum + week.volume, 0) / last52.length
+        : null;
+      const momentumSignal = lastThree.length === 3
+        && lastThree.every((week) => week.changePct > 0)
+        && avg52WeekVolume
+        && lastThree.every((week) => week.volume > avg52WeekVolume);
+
+      return {
+        avgChangePct,
+        weeks: lastThree,
+        watchWeeks,
+        avg52WeekVolume,
+        momentumSignal,
+        unavailable: !lastThree.length && !watchWeeks.length,
+        message: (lastThree.length || watchWeeks.length) ? '' : '此 Symbol 暫無 Mon-Fri 週線歷史資料',
+      };
+    }
+
+    async function resolveSymbol(input, market = 'US', force = false, options = {}) {
+      const { preferSearch = false } = options;
+      const normalized = normalizeSymbol(input);
+      if (!normalized) return { symbol: '', name: '', type: 'unknown' };
+
+      const cacheKey = `${normalized}:${market}`;
+      if (state.symbolMeta[cacheKey] && !force) return state.symbolMeta[cacheKey];
+
+      const directSymbol = buildDirectSymbol(input, market);
+      if (directSymbol && !preferSearch && shouldUseDirectSymbol(input, market)) {
+        const resolved = {
+          symbol: directSymbol,
+          name: directSymbol,
+          type: 'unknown',
+          displaySymbol: input.trim().toUpperCase(),
+          exchange: marketExchangeCode(market),
+          source: 'direct',
+        };
+        state.symbolMeta[cacheKey] = resolved;
+        return resolved;
+      }
+
+      const results = await searchSymbols(input.trim(), force);
+      const match = pickBestSearchResult(results, input, market);
+      if (match) {
+        const resolved = {
+          symbol: match.symbol,
+          name: match.longname || match.shortname || match.symbol,
+          type: match.quoteType || 'unknown',
+          displaySymbol: match.symbol,
+          exchange: match.exchange,
+          source: 'search',
+        };
+        state.symbolMeta[cacheKey] = resolved;
+        return resolved;
+      }
+
+      const resolved = {
+        symbol: directSymbol || normalized,
+        name: directSymbol || normalized,
+        type: 'unknown',
+        displaySymbol: directSymbol || normalized,
+        exchange: marketExchangeCode(market),
+        source: 'fallback',
+      };
+      state.symbolMeta[cacheKey] = resolved;
+      return resolved;
+    }
+
+    function shouldUseDirectSymbol(input, market) {
+      const raw = String(input).trim().toUpperCase();
+      if (market === 'HK') return /^\d{1,5}(\.HK)?$/.test(raw);
+      if (market === 'JP') return /^\d{1,5}(\.T)?$/.test(raw);
+      if (market === 'US') return /^[A-Z0-9]+([.\-][A-Z0-9]+)?$/.test(raw);
+      return false;
+    }
+
+    function buildDirectSymbol(input, market) {
+      const raw = String(input).trim().toUpperCase();
+      if (!raw) return '';
+
+      if (market === 'HK') {
+        if (raw.endsWith('.HK')) return raw;
+        if (/^\d{1,5}$/.test(raw)) return `${raw.padStart(4, '0')}.HK`;
+      }
+
+      if (market === 'JP') {
+        if (raw.endsWith('.T')) return raw;
+        if (/^\d{1,5}$/.test(raw)) return `${raw}.T`;
+      }
+
+      if (market === 'US') {
+        return raw.replace(/\./g, '-');
+      }
+
+      return raw;
+    }
+
+    function marketExchangeCode(market) {
+      return { US: 'US', HK: 'HKG', JP: 'JPX' }[market] || '';
+    }
+
+    function symbolsLooselyMatch(left, right) {
+      const a = normalizeSymbol(left).replace(/-/g, '.');
+      const b = normalizeSymbol(right).replace(/-/g, '.');
+      return a === b;
+    }
+
+    async function searchSymbols(query, force = false) {
+      const cacheKey = `search:${query}`;
+      const url = `${YAHOO_API_BASE}/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=20&newsCount=0`;
+      const data = await cachedFetch(cacheKey, url, force);
+      return Array.isArray(data?.quotes) ? data.quotes : [];
+    }
+
+    function rankSearchResults(results, query, market) {
+      const tradable = results.filter((item) => !['OPTION', 'CRYPTOCURRENCY', 'CURRENCY', 'FUTURE'].includes(item.quoteType));
+      const pool = tradable.length ? tradable : results;
+      const direct = buildDirectSymbol(query, market);
+
+      return pool
+        .map((item) => ({ item, score: scoreSearchResult(item, query, market, direct) }))
+        .filter((entry) => entry.score > -50)
+        .sort((a, b) => b.score - a.score)
+        .map((entry) => entry.item);
+    }
+
+    function pickBestSearchResult(results, query, market) {
+      const ranked = rankSearchResults(results, query, market);
+      return ranked[0] || null;
+    }
+
+    function scoreSearchResult(item, query, market, directSymbol = '') {
+      let score = 0;
+      const symbol = normalizeSymbol(item.symbol);
+      const rawQuery = String(query).trim().toUpperCase();
+      const queryNorm = normalizeSymbol(rawQuery);
+      const direct = normalizeSymbol(directSymbol || buildDirectSymbol(query, market));
+
+      if (symbol === direct) score += 200;
+      if (symbol === queryNorm) score += 180;
+      if (symbolsLooselyMatch(symbol, rawQuery)) score += 160;
+      if (symbolsLooselyMatch(symbol, direct)) score += 170;
+
+      const wrongSuffixes = {
+        HK: ['.KS', '.KQ', '.SS', '.SZ', '.TW', '.BK', '.T', '.AX'],
+        JP: ['.HK', '.KS', '.SS', '.SZ', '.TW'],
+        US: ['.HK', '.KS', '.T', '.L', '.SS'],
+      };
+      wrongSuffixes[market]?.forEach((suffix) => {
+        if (symbol.endsWith(suffix)) score -= 120;
+      });
+
+      const marketRules = {
+        HK: () => {
+          if (symbol.endsWith('.HK') || item.exchange === 'HKG') score += 80;
+          if (/^\d{4}\.HK$/.test(symbol) && rawQuery.replace(/^0+/, '') === symbol.replace('.HK', '').replace(/^0+/, '')) score += 60;
+        },
+        JP: () => {
+          if (symbol.endsWith('.T') || item.exchange === 'JPX') score += 80;
+        },
+        US: () => {
+          if (['NMS', 'NYQ', 'NGM', 'NCM', 'ASE', 'PCX', 'BTS'].includes(item.exchange)) score += 40;
+          if (item.quoteType === 'EQUITY') score += 35;
+          if (item.quoteType === 'ETF' && /[.\-]/.test(rawQuery)) score -= 60;
+          if (item.quoteType === 'ETF' && symbol === rawQuery.replace('.', '-')) score -= 80;
+          if (symbol.length <= 5 && symbol === rawQuery.replace('.', '-')) score += 50;
+        },
+      };
+      marketRules[market]?.();
+
+      if (item.quoteType === 'ETF' && !rawQuery.includes('ETF')) score -= 10;
+      if (item.longname && item.longname.toUpperCase().includes(rawQuery)) score += 8;
+      return score;
+    }
+
+    function applyMarketSymbolSuffix(symbol, market) {
+      return buildDirectSymbol(symbol, market) || symbol;
+    }
+
+    function bindPortfolioSymbolAutocomplete() {
+      const hideSuggestions = () => {
+        els.portfolioSymbolSuggestions.classList.add('hidden');
+        els.portfolioSymbolSuggestions.innerHTML = '';
+      };
+
+      const renderSuggestions = (results, query) => {
+        const market = els.portfolioMarketSelect.value;
+        const ranked = rankSearchResults(results, query, market).slice(0, 6);
+        if (!ranked.length) {
+          hideSuggestions();
+          return;
+        }
+
+        els.portfolioSymbolSuggestions.innerHTML = ranked.map((item) => `
+          <button type="button" data-suggest-symbol="${escapeHtml(item.symbol)}" data-suggest-name="${escapeHtml(item.longname || item.shortname || item.symbol)}" data-suggest-type="${escapeHtml(item.quoteType || '')}" class="flex w-full items-start justify-between gap-3 border-b border-zinc-800 px-4 py-3 text-left transition last:border-0 hover:bg-zinc-900">
+            <div>
+              <div class="font-bold text-yellow-300">${escapeHtml(item.symbol)}</div>
+              <div class="mt-1 text-xs text-zinc-400">${escapeHtml(item.longname || item.shortname || '')}</div>
+            </div>
+            <span class="rounded-full border border-zinc-700 px-2 py-1 text-[10px] text-zinc-400">${escapeHtml(item.quoteType || item.exchange || '')}</span>
+          </button>
+        `).join('');
+        els.portfolioSymbolSuggestions.classList.remove('hidden');
+
+        els.portfolioSymbolSuggestions.querySelectorAll('[data-suggest-symbol]').forEach((btn) => {
+          btn.addEventListener('mousedown', (event) => {
+            event.preventDefault();
+            const symbol = btn.dataset.suggestSymbol;
+            state.portfolioSymbolPick = {
+              symbol,
+              name: btn.dataset.suggestName,
+              type: btn.dataset.suggestType,
+              market: els.portfolioMarketSelect.value,
+            };
+            els.portfolioSymbolInput.value = symbol;
+            hideSuggestions();
+          });
+        });
+      };
+
+      const queueSuggestions = () => {
+        clearTimeout(state.portfolioSuggestTimer);
+        state.portfolioSuggestTimer = setTimeout(async () => {
+          const query = els.portfolioSymbolInput.value.trim();
+          state.portfolioSymbolPick = null;
+          if (query.length < 1) {
+            hideSuggestions();
+            return;
+          }
+
+          const direct = buildDirectSymbol(query, els.portfolioMarketSelect.value);
+          if (shouldUseDirectSymbol(query, els.portfolioMarketSelect.value)) {
+            renderSuggestions([{
+              symbol: direct,
+              longname: `${direct}（依市場自動配對）`,
+              shortname: direct,
+              quoteType: 'DIRECT',
+              exchange: marketExchangeCode(els.portfolioMarketSelect.value),
+            }], query);
+            return;
+          }
+
+          try {
+            const results = await searchSymbols(query);
+            renderSuggestions(results, query);
+          } catch (error) {
+            console.warn('symbol suggest failed', error);
+            hideSuggestions();
+          }
+        }, 280);
+      };
+
+      els.portfolioSymbolInput.addEventListener('input', queueSuggestions);
+      els.portfolioMarketSelect.addEventListener('change', queueSuggestions);
+      els.portfolioSymbolInput.addEventListener('focus', queueSuggestions);
+      els.portfolioSymbolInput.addEventListener('blur', () => {
+        setTimeout(hideSuggestions, 180);
+      });
+    }
+
+    function getMarketForSymbol(symbol) {
+      const normalized = normalizeSymbol(symbol);
+      const watchItem = state.watchlist.find((item) => normalizeSymbol(item.symbol) === normalized);
+      if (watchItem) return watchItem.market;
+
+      const portfolioItem = state.portfolio.find((item) => normalizeSymbol(item.symbol) === normalized);
+      if (portfolioItem) return portfolioItem.market;
+
+      for (const [market, items] of Object.entries(getAllSectorsByMarket())) {
+        if (items.some((item) => normalizeSymbol(item.symbol) === normalized)) return market;
+      }
+
+      if (normalized.endsWith('.HK')) return 'HK';
+      if (normalized.endsWith('.T')) return 'JP';
+      return 'US';
+    }
+
+    async function cachedFetch(key, url, force = false) {
+      const now = Date.now();
+      const cached = state.cache[key];
+      if (!force && cached && now - cached.timestamp < CACHE_TTL) return cached.data;
+
+      await throttleYahooRequest();
+      let response;
+      try {
+        response = await fetch(url);
+      } catch (error) {
+        if (String(error).includes('Failed to fetch')) {
+          throw new Error('無法連線資料伺服器，請執行 python server.py 後開啟 http://127.0.0.1:8080');
+        }
+        throw error;
+      }
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.chart?.error?.description || data?.finance?.error?.description || `Yahoo HTTP ${response.status}`);
+      }
+
+      if (data?.chart?.error) throw new Error(data.chart.error.description || 'Yahoo chart error');
+      if (data?.error && !data?.chart && !data?.quotes) throw new Error(data.error);
+
+      state.cache[key] = { timestamp: now, data };
+      saveJson(CACHE_KEY, state.cache);
+      return data;
+    }
+
+    async function throttleYahooRequest() {
+      const minInterval = 350;
+      const elapsed = Date.now() - state.lastApiCallAt;
+      if (elapsed < minInterval) await sleep(minInterval - elapsed);
+      state.lastApiCallAt = Date.now();
+    }
+
+    function sleep(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    async function addCustomSector() {
+      const input = document.getElementById('sector-symbol-input');
+      const market = document.getElementById('sector-market-select').value;
+      const rawSymbol = normalizeSymbol(input.value);
+      if (!rawSymbol) return toast('請輸入 ETF Symbol', 'error');
+
+      const resolved = await resolveSymbol(rawSymbol, market);
+      const symbol = resolved.symbol || rawSymbol;
+      if (state.customSectors.some((item) => item.symbol === symbol && item.market === market)) return toast('此 ETF 已存在', 'error');
+
+      state.customSectors.push({
+        id: createId(),
+        symbol,
+        market,
+        name: resolved.name,
+        addedAt: new Date().toISOString(),
+      });
+      saveJson(CUSTOM_SECTORS_KEY, state.customSectors);
+      input.value = '';
+      renderSectors();
+      await hydrateSymbols([symbol], false);
+      renderSectors();
+      toast(`${symbol} 已加入${marketLabels[market]}版塊`, 'success');
+    }
+
+    async function addWatchlistItem() {
+      const input = document.getElementById('watch-symbol-input');
+      const market = document.getElementById('watch-market-select').value;
+      const rawSymbol = normalizeSymbol(input.value);
+      if (!rawSymbol) return toast('請輸入 Symbol', 'error');
+
+      const resolved = await resolveSymbol(rawSymbol, market);
+      const symbol = resolved.symbol || rawSymbol;
+      if (state.watchlist.some((item) => item.symbol === symbol)) return toast('此 Symbol 已在觀察清單', 'error');
+
+      state.symbolMeta[symbol] = resolved;
+      const profile = await getProfile(symbol, false, resolved);
+      const item = {
+        id: createId(),
+        symbol,
+        market,
+        name: profile?.name || resolved.name || symbol,
+        targetPrice: '',
+        memo: '',
+        addedAt: new Date().toISOString(),
+      };
+      state.watchlist.push(item);
+      saveJson(WATCHLIST_KEY, state.watchlist);
+      input.value = '';
+      renderWatchlist();
+      await hydrateSymbols([symbol], false);
+      renderWatchlist();
+      toast(`${symbol} 已加入觀察清單`, 'success');
+    }
+
+    async function addPortfolioItem(event) {
+      event.preventDefault();
+      const symbolInput = document.getElementById('portfolio-symbol-input');
+      const market = document.getElementById('portfolio-market-select').value;
+      const qtyInput = document.getElementById('portfolio-qty-input');
+      const costInput = document.getElementById('portfolio-cost-input');
+      const dateInput = document.getElementById('portfolio-date-input');
+
+      const rawSymbol = symbolInput.value.trim();
+      const quantity = Number(qtyInput.value);
+      const avgCost = Number(costInput.value);
+      const purchaseDate = dateInput.value;
+
+      if (!rawSymbol || quantity <= 0 || avgCost <= 0 || !purchaseDate) {
+        toast('請完整輸入持倉資料', 'error');
+        return;
+      }
+
+      let resolved;
+      if (state.portfolioSymbolPick && state.portfolioSymbolPick.market === market && symbolsLooselyMatch(state.portfolioSymbolPick.symbol, rawSymbol)) {
+        resolved = state.portfolioSymbolPick;
+      } else {
+        resolved = await resolveSymbol(rawSymbol, market);
+      }
+
+      const symbol = resolved.symbol || buildDirectSymbol(rawSymbol, market) || normalizeSymbol(rawSymbol);
+      state.symbolMeta[`${symbol}:${market}`] = resolved;
+      const profile = await getProfile(symbol, false, resolved);
+
+      const existing = state.portfolio.find((item) => item.symbol === symbol && item.market === market);
+      if (existing) {
+        const totalQty = existing.quantity + quantity;
+        const mergedAvgCost = ((existing.quantity * existing.avgCost) + (quantity * avgCost)) / totalQty;
+        existing.quantity = totalQty;
+        existing.avgCost = mergedAvgCost;
+        existing.purchaseDate = purchaseDate;
+        existing.name = profile?.name || resolved.name || existing.name;
+        saveJson(PORTFOLIO_KEY, state.portfolio);
+        event.target.reset();
+        setDefaultPortfolioDate();
+        state.portfolioSymbolPick = null;
+        els.portfolioSymbolSuggestions.classList.add('hidden');
+        renderPortfolio();
+        renderAllocation();
+        await hydrateSymbols([symbol], false);
+        renderPortfolio();
+        renderAllocation();
+        calculateRangePerformance(false);
+        toast(`${symbol} 已合併持倉，新平均成本 ${formatMoney(mergedAvgCost, currencyByMarket[market])}`, 'success');
+        return;
+      }
+
+      state.portfolio.push({
+        id: createId(),
+        symbol,
+        market,
+        name: profile?.name || resolved.name || symbol,
+        quantity,
+        avgCost,
+        purchaseDate,
+        addedAt: new Date().toISOString(),
+      });
+      saveJson(PORTFOLIO_KEY, state.portfolio);
+      event.target.reset();
+      setDefaultPortfolioDate();
+      state.portfolioSymbolPick = null;
+      els.portfolioSymbolSuggestions.classList.add('hidden');
+      renderPortfolio();
+      renderAllocation();
+      await hydrateSymbols([symbol], false);
+      renderPortfolio();
+      renderAllocation();
+      calculateRangePerformance(false);
+      toast(`${symbol} 持倉已新增`, 'success');
+    }
+
+    function saveWatchMemo(id, value) {
+      const item = state.watchlist.find((entry) => entry.id === id);
+      if (!item) return;
+      item.memo = String(value || '').trim();
+      saveJson(WATCHLIST_KEY, state.watchlist);
+      toast(`${item.symbol} 備忘已儲存`, 'success');
+    }
+
+    function saveTargetPrice(id, value) {
+      const item = state.watchlist.find((entry) => entry.id === id);
+      if (!item) return;
+      item.targetPrice = value === '' ? '' : Number(value);
+      saveJson(WATCHLIST_KEY, state.watchlist);
+      renderWatchlist();
+      toast(`${item.symbol} 目標價已儲存`, 'success');
+    }
+
+    function deleteWatchItem(id) {
+      const item = state.watchlist.find((entry) => entry.id === id);
+      state.watchlist = state.watchlist.filter((entry) => entry.id !== id);
+      saveJson(WATCHLIST_KEY, state.watchlist);
+      renderWatchlist();
+      toast(`${item?.symbol || '項目'} 已刪除`, 'success');
+    }
+
+    function deletePortfolioItem(id) {
+      const item = state.portfolio.find((entry) => entry.id === id);
+      state.portfolio = state.portfolio.filter((entry) => entry.id !== id);
+      saveJson(PORTFOLIO_KEY, state.portfolio);
+      renderPortfolio();
+      renderAllocation();
+      calculateRangePerformance(false);
+      toast(`${item?.symbol || '持倉'} 已刪除`, 'success');
+    }
+
+    function recordRealizedTrade(item, quantity, sellPrice, action) {
+      const avgCost = Number(item.avgCost || 0);
+      const qty = Number(quantity || 0);
+      const price = Number(sellPrice || 0);
+      const currency = currencyByMarket[item.market] || 'USD';
+      const realizedPnl = (price - avgCost) * qty;
+
+      state.realizedTrades.push({
+        id: createId(),
+        symbol: item.symbol,
+        market: item.market,
+        name: item.name || item.symbol,
+        quantity: qty,
+        avgCost,
+        sellPrice: price,
+        realizedPnl,
+        currency,
+        closedAt: toDateInputValue(new Date()),
+        action,
+      });
+      saveJson(REALIZED_TRADES_KEY, state.realizedTrades);
+      return realizedPnl;
+    }
+
+    function applyPortfolioQuantityChange(item, remainingQty) {
+      if (remainingQty <= 0.0000001) {
+        state.portfolio = state.portfolio.filter((entry) => entry.id !== item.id);
+      } else {
+        item.quantity = remainingQty;
+      }
+      saveJson(PORTFOLIO_KEY, state.portfolio);
+    }
+
+    function reducePortfolioItem(id) {
+      const item = state.portfolio.find((entry) => entry.id === id);
+      if (!item) return;
+
+      const metrics = getPortfolioMetrics(item);
+      const qtyInput = window.prompt(
+        `減持 ${item.symbol}\n請輸入減持數量（目前持倉：${formatNumber(metrics.quantity, 4)}）:`,
+        '',
+      );
+      if (qtyInput === null) return;
+
+      const reduceQty = Number(qtyInput);
+      if (!Number.isFinite(reduceQty) || reduceQty <= 0) {
+        toast('減持數量無效', 'error');
+        return;
+      }
+      if (reduceQty > metrics.quantity) {
+        toast('減持數量不能超過持倉數量', 'error');
+        return;
+      }
+
+      const defaultPrice = metrics.latestPrice > 0 ? String(metrics.latestPrice) : '';
+      const priceInput = window.prompt(
+        `賣出單價（${metrics.currency}）:`,
+        defaultPrice,
+      );
+      if (priceInput === null) return;
+
+      const sellPrice = Number(priceInput);
+      if (!Number.isFinite(sellPrice) || sellPrice <= 0) {
+        toast('賣出單價無效', 'error');
+        return;
+      }
+
+      const realizedPnl = recordRealizedTrade(item, reduceQty, sellPrice, 'reduce');
+      applyPortfolioQuantityChange(item, metrics.quantity - reduceQty);
+      renderPortfolio();
+      renderAllocation();
+      calculateRangePerformance(false);
+      toast(`${item.symbol} 已減持 ${formatNumber(reduceQty, 4)}，已清算盈利 ${formatMoney(realizedPnl, metrics.currency)}`, 'success');
+    }
+
+    function closePortfolioItem(id) {
+      const item = state.portfolio.find((entry) => entry.id === id);
+      if (!item) return;
+
+      const metrics = getPortfolioMetrics(item);
+      if (!window.confirm(`確定清倉 ${item.symbol}？\n將賣出全部 ${formatNumber(metrics.quantity, 4)} 股。`)) return;
+
+      const defaultPrice = metrics.latestPrice > 0 ? String(metrics.latestPrice) : '';
+      const priceInput = window.prompt(
+        `清倉賣出單價（${metrics.currency}）:`,
+        defaultPrice,
+      );
+      if (priceInput === null) return;
+
+      const sellPrice = Number(priceInput);
+      if (!Number.isFinite(sellPrice) || sellPrice <= 0) {
+        toast('賣出單價無效', 'error');
+        return;
+      }
+
+      const realizedPnl = recordRealizedTrade(item, metrics.quantity, sellPrice, 'close');
+      applyPortfolioQuantityChange(item, 0);
+      renderPortfolio();
+      renderAllocation();
+      calculateRangePerformance(false);
+      toast(`${item.symbol} 已清倉，已清算盈利 ${formatMoney(realizedPnl, metrics.currency)}`, 'success');
+    }
+
+    function getPortfolioMetrics(item) {
+      const quote = state.quotes[item.symbol];
+      const latestPrice = Number(quote?.c || 0);
+      const quantity = Number(item.quantity || 0);
+      const avgCost = Number(item.avgCost || 0);
+      const costTotal = quantity * avgCost;
+      const marketValue = quantity * latestPrice;
+      const pnl = marketValue - costTotal;
+      const pnlPct = costTotal > 0 ? (pnl / costTotal) * 100 : 0;
+      const currency = currencyByMarket[item.market] || 'USD';
+
+      return {
+        ...item,
+        latestPrice,
+        quantity,
+        avgCost,
+        costTotal,
+        marketValue,
+        pnl,
+        pnlPct,
+        currency,
+      };
+    }
+
+    function buildSummaries(rows) {
+      return rows.reduce((acc, row) => {
+        if (!acc[row.currency]) acc[row.currency] = { cost: 0, value: 0, pnl: 0, pnlPct: 0 };
+        acc[row.currency].cost += row.costTotal;
+        acc[row.currency].value += row.marketValue;
+        acc[row.currency].pnl += row.pnl;
+        acc[row.currency].pnlPct = acc[row.currency].cost > 0 ? (acc[row.currency].pnl / acc[row.currency].cost) * 100 : 0;
+        return acc;
+      }, {});
+    }
+
+    function calculateRangePerformance(showToast = true) {
+      const from = document.getElementById('range-from-input').value;
+      const to = document.getElementById('range-to-input').value;
+      if (!from || !to) return;
+
+      const fromDate = new Date(`${from}T00:00:00`);
+      const toDate = new Date(`${to}T23:59:59`);
+      const rows = state.portfolio
+        .filter((item) => {
+          const date = new Date(`${item.purchaseDate}T12:00:00`);
+          return date >= fromDate && date <= toDate;
+        })
+        .map(getPortfolioMetrics);
+
+      if (!rows.length) {
+        els.rangeResult.innerHTML = `<p class="text-zinc-400">此日期範圍內沒有持倉。</p>`;
+        if (showToast) toast('此日期範圍內沒有持倉', 'error');
+        return;
+      }
+
+      const summaries = buildSummaries(rows);
+      els.rangeResult.innerHTML = Object.entries(summaries).map(([currency, data]) => `
+        <div class="border-b border-zinc-800 py-3 last:border-0">
+          <div class="mb-2 font-bold text-yellow-300">${currency} 期間子組合</div>
+          <div class="grid gap-2 text-sm">
+            <div class="flex justify-between"><span class="text-zinc-500">總成本</span><strong>${formatMoney(data.cost, currency)}</strong></div>
+            <div class="flex justify-between"><span class="text-zinc-500">當前值</span><strong>${formatMoney(data.value, currency)}</strong></div>
+            <div class="flex justify-between"><span class="text-zinc-500">盈虧</span><strong class="${moneyClass(data.pnl)}">${formatMoney(data.pnl, currency)} (${formatPercent(data.pnlPct)})</strong></div>
+          </div>
+        </div>
+      `).join('');
+      if (showToast) toast('期間盈虧已計算', 'success');
+    }
+
+    function setMonthRange() {
+      const now = new Date();
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      document.getElementById('range-from-input').value = toDateInputValue(firstDay);
+      document.getElementById('range-to-input').value = toDateInputValue(now);
+      calculateRangePerformance(true);
+    }
+
+    function setDefaultDates() {
+      const now = new Date();
+      const threeYearsAgo = new Date(now);
+      threeYearsAgo.setFullYear(now.getFullYear() - 3);
+      document.getElementById('range-from-input').value = toDateInputValue(threeYearsAgo);
+      document.getElementById('range-to-input').value = toDateInputValue(now);
+      setDefaultPortfolioDate();
+    }
+
+    function setDefaultPortfolioDate() {
+      document.getElementById('portfolio-date-input').value = toDateInputValue(new Date());
+    }
+
+    function getAllSectorsByMarket() {
+      const grouped = {
+        US: defaultSectors.US.map((symbol) => ({ symbol, market: 'US', default: true })),
+        JP: defaultSectors.JP.map((symbol) => ({ symbol, market: 'JP', default: true })),
+        HK: defaultSectors.HK.map((symbol) => ({ symbol, market: 'HK', default: true })),
+      };
+      state.customSectors.forEach((item) => {
+        if (!grouped[item.market]) grouped[item.market] = [];
+        if (!grouped[item.market].some((entry) => entry.symbol === item.symbol)) grouped[item.market].push(item);
+      });
+      return grouped;
+    }
+
+    function groupByMarket(items) {
+      return items.reduce((acc, item) => {
+        if (!acc[item.market]) acc[item.market] = [];
+        acc[item.market].push(item);
+        return acc;
+      }, { US: [], JP: [], HK: [] });
+    }
+
+    async function exportJson(type) {
+      const dataMap = {
+        watchlist: state.watchlist,
+        portfolio: state.portfolio,
+        customSectors: state.customSectors,
+        cashDeposits: state.cashDeposits,
+        realizedTrades: state.realizedTrades,
+      };
+      const filename = JSON_FILE_MAP[type];
+      try {
+        await saveJsonToServerFolder(filename, dataMap[type]);
+        toast(`已匯出至資料夾：${filename}`, 'success');
+      } catch (error) {
+        console.error(error);
+        toast(error.message || '匯出失敗，請確認已用 start.bat 啟動伺服器', 'error');
+      }
+    }
+
+    async function importJson(type) {
+      const filename = JSON_FILE_MAP[type];
+      const mode = window.confirm('按「確定」覆蓋現有資料；按「取消」以合併載入資料。') ? 'overwrite' : 'merge';
+      try {
+        const parsed = await loadJsonFromServerFolder(filename);
+        if (!Array.isArray(parsed)) throw new Error('JSON 必須是陣列');
+        applyImportedData(type, parsed, mode);
+        renderAll();
+        await refreshAllData(false);
+        toast(`已從資料夾載入 ${filename}（${mode === 'overwrite' ? '覆蓋' : '合併'}）`, 'success');
+      } catch (error) {
+        console.error(error);
+        toast(error.message || '載入失敗，請先匯出或確認檔案存在', 'error');
+      }
+    }
+
+    async function bootstrapFromServerFolder() {
+      for (const [type, filename] of Object.entries(JSON_FILE_MAP)) {
+        try {
+          const parsed = await loadJsonFromServerFolder(filename);
+          if (Array.isArray(parsed)) applyImportedData(type, parsed, 'overwrite');
+        } catch (error) {
+          console.info(`Skip bootstrap ${filename}:`, error.message);
+        }
+      }
+    }
+
+    async function loadJsonFromServerFolder(filename) {
+      const response = await fetch(`${DATA_API_BASE}/${filename}`);
+      if (response.status === 404) throw new Error(`找不到 ${filename}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || `讀取 ${filename} 失敗`);
+      return data;
+    }
+
+    async function saveJsonToServerFolder(filename, payload) {
+      const response = await fetch(`${DATA_API_BASE}/${filename}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload, null, 2),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.error || `寫入 ${filename} 失敗`);
+      return data;
+    }
+
+    function applyImportedData(type, data, mode) {
+      if (type === 'watchlist') {
+        const normalized = data.map((item) => ({
+          id: item.id || createId(),
+          symbol: normalizeSymbol(item.symbol),
+          market: item.market || 'US',
+          name: item.name || item.symbol,
+          targetPrice: item.targetPrice || '',
+          memo: item.memo || '',
+          addedAt: item.addedAt || new Date().toISOString(),
+        })).filter((item) => item.symbol);
+        state.watchlist = mode === 'overwrite' ? normalized : mergeBySymbolMarket(state.watchlist, normalized);
+        saveJson(WATCHLIST_KEY, state.watchlist);
+      }
+
+      if (type === 'portfolio') {
+        const normalized = data.map((item) => ({
+          id: item.id || createId(),
+          symbol: normalizeSymbol(item.symbol),
+          market: item.market || 'US',
+          name: item.name || item.symbol,
+          quantity: Number(item.quantity || 0),
+          avgCost: Number(item.avgCost || 0),
+          purchaseDate: item.purchaseDate || toDateInputValue(new Date()),
+          addedAt: item.addedAt || new Date().toISOString(),
+        })).filter((item) => item.symbol && item.quantity > 0 && item.avgCost > 0);
+        state.portfolio = mode === 'overwrite' ? normalized : [...state.portfolio, ...normalized];
+        saveJson(PORTFOLIO_KEY, state.portfolio);
+      }
+
+      if (type === 'customSectors') {
+        const normalized = data.map((item) => ({
+          id: item.id || createId(),
+          symbol: normalizeSymbol(item.symbol),
+          market: item.market || 'US',
+          addedAt: item.addedAt || new Date().toISOString(),
+        })).filter((item) => item.symbol);
+        state.customSectors = mode === 'overwrite' ? normalized : mergeBySymbolMarket(state.customSectors, normalized);
+        saveJson(CUSTOM_SECTORS_KEY, state.customSectors);
+      }
+
+      if (type === 'cashDeposits') {
+        const normalized = data.map((item) => ({
+          id: item.id || createId(),
+          yearMonth: item.yearMonth || '',
+          amount: Number(item.amount || 0),
+          note: item.note || '',
+          addedAt: item.addedAt || new Date().toISOString(),
+          updatedAt: item.updatedAt || new Date().toISOString(),
+        })).filter((item) => item.yearMonth && Number.isFinite(item.amount) && item.amount !== 0);
+        state.cashDeposits = mode === 'overwrite' ? normalized : mergeCashDeposits(state.cashDeposits, normalized);
+        saveJson(CASH_DEPOSITS_KEY, state.cashDeposits);
+      }
+
+      if (type === 'realizedTrades') {
+        const normalized = data.map((item) => ({
+          id: item.id || createId(),
+          symbol: normalizeSymbol(item.symbol),
+          market: item.market || 'US',
+          name: item.name || item.symbol,
+          quantity: Number(item.quantity || 0),
+          avgCost: Number(item.avgCost || 0),
+          sellPrice: Number(item.sellPrice || 0),
+          realizedPnl: Number(item.realizedPnl || 0),
+          currency: item.currency || currencyByMarket[item.market] || 'USD',
+          closedAt: item.closedAt || toDateInputValue(new Date()),
+          action: item.action === 'close' ? 'close' : 'reduce',
+        })).filter((item) => item.symbol && item.quantity > 0);
+        state.realizedTrades = mode === 'overwrite' ? normalized : [...state.realizedTrades, ...normalized];
+        saveJson(REALIZED_TRADES_KEY, state.realizedTrades);
+      }
+    }
+
+    function mergeCashDeposits(existing, incoming) {
+      const map = new Map(existing.map((item) => [item.yearMonth, item]));
+      incoming.forEach((item) => map.set(item.yearMonth, { ...map.get(item.yearMonth), ...item }));
+      return [...map.values()];
+    }
+
+    function mergeBySymbolMarket(existing, incoming) {
+      const map = new Map(existing.map((item) => [`${item.symbol}:${item.market}`, item]));
+      incoming.forEach((item) => map.set(`${item.symbol}:${item.market}`, { ...map.get(`${item.symbol}:${item.market}`), ...item }));
+      return [...map.values()];
+    }
+
+    function setBusy(isBusy) {
+      state.loadingCount += isBusy ? 1 : -1;
+      state.loadingCount = Math.max(0, state.loadingCount);
+      const busy = state.loadingCount > 0;
+      els.globalLoading.classList.toggle('hidden', !busy);
+      els.globalLoading.classList.toggle('flex', busy);
+      ['refresh-all-btn', 'refresh-sectors-btn', 'refresh-watchlist-btn', 'refresh-portfolio-btn', 'refresh-allocation-btn'].forEach((id) => {
+        const button = document.getElementById(id);
+        if (button) button.disabled = busy;
+      });
+    }
+
+    function toast(message, type = 'info') {
+      const color = type === 'error'
+        ? 'border-red-500/40 bg-red-950 text-red-100'
+        : type === 'success'
+          ? 'border-emerald-500/40 bg-emerald-950 text-emerald-100'
+          : 'border-yellow-400/40 bg-zinc-900 text-yellow-100';
+      const node = document.createElement('div');
+      node.className = `rounded-xl border ${color} px-4 py-3 text-sm shadow-xl`;
+      node.textContent = message;
+      els.toastContainer.appendChild(node);
+      setTimeout(() => {
+        node.style.opacity = '0';
+        node.style.transform = 'translateY(8px)';
+        node.style.transition = 'all .25s ease';
+        setTimeout(() => node.remove(), 260);
+      }, 3200);
+    }
+
+    function loadJson(key, fallback) {
+      try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+      } catch (error) {
+        console.error(error);
+        return fallback;
+      }
+    }
+
+    function saveJson(key, value) {
+      localStorage.setItem(key, JSON.stringify(value));
+    }
+
+    function normalizeSymbol(value) {
+      return String(value || '').trim().toUpperCase();
+    }
+
+    function unique(items) {
+      return [...new Set(items)];
+    }
+
+    function createId() {
+      return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    }
+
+    function formatMoney(value, currency = 'USD') {
+      const amount = Number(value);
+      if (!Number.isFinite(amount)) return '--';
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(amount);
+    }
+
+    function formatNumber(value, digits = 2) {
+      const number = Number(value);
+      if (!Number.isFinite(number)) return '--';
+      return new Intl.NumberFormat('en-US', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: digits,
+      }).format(number);
+    }
+
+    function formatPercent(value) {
+      const number = Number(value);
+      if (!Number.isFinite(number)) return '--';
+      return `${number >= 0 ? '+' : ''}${number.toFixed(2)}%`;
+    }
+
+    function formatVolumeM(value) {
+      const number = Number(value);
+      if (!Number.isFinite(number)) return '--';
+      return `${(number / 1_000_000).toFixed(2)}M`;
+    }
+
+    function formatDateShort(date) {
+      return `${date.getMonth() + 1}/${date.getDate()}`;
+    }
+
+    function toDateInputValue(date) {
+      const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+      return offsetDate.toISOString().slice(0, 10);
+    }
+
+    function percentClass(value) {
+      const number = Number(value);
+      if (!Number.isFinite(number) || number === 0) return 'text-zinc-300';
+      return number > 0 ? 'text-emerald-300' : 'text-red-300';
+    }
+
+    function moneyClass(value) {
+      return percentClass(value);
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+  </script>
+</body>
+</html>
